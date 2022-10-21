@@ -105,8 +105,9 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     camera_lookat_point = torch.tensor(G.rendering_kwargs['avg_camera_pivot'], device=device)
     zs = torch.from_numpy(np.stack([np.random.RandomState(seed).randn(G.z_dim) for seed in all_seeds])).to(device)
     cam2world_pose = LookAtPoseSampler.sample(3.14/2, 3.14/2, camera_lookat_point, radius=G.rendering_kwargs['avg_camera_radius'], device=device)
+    
     # focal_length = 4.2647 if (cfg != 'Shapenet' or cfg != 'ABO') else 1.7074 # shapenet has higher FOV
-    if (cfg != 'Shapenet' or cfg != 'ABO'):
+    if (cfg != 'Shapenet' and cfg != 'ABO'):
         focal_length = 4.2647
     elif cfg == 'Shapenet':
         focal_length = 1.7074
@@ -114,6 +115,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
         focal_length = 0.3889
     else:
         print("Not supported dataset type")
+    print("Focal length: ", focal_length)
     intrinsics = torch.tensor([[focal_length, 0, 0.5], [0, focal_length, 0.5], [0, 0, 1]], device=device)
     c = torch.cat([cam2world_pose.reshape(-1, 16), intrinsics.reshape(-1, 9)], 1)
     c = c.repeat(len(zs), 1)
@@ -157,6 +159,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
                 cam2world_pose = LookAtPoseSampler.sample(3.14/2 + yaw_range * np.sin(2 * 3.14 * frame_idx / (num_keyframes * w_frames)),
                                                         3.14/2 -0.05 + pitch_range * np.cos(2 * 3.14 * frame_idx / (num_keyframes * w_frames)),
                                                         camera_lookat_point, radius=G.rendering_kwargs['avg_camera_radius'], device=device)
+            
                 all_poses.append(cam2world_pose.squeeze().cpu().numpy())
                 focal_length = 4.2647 if (cfg != 'Shapenet' or cfg != 'ABO')  else 1.7074 # shapenet has higher FOV
                 intrinsics = torch.tensor([[focal_length, 0, 0.5], [0, focal_length, 0.5], [0, 0, 1]], device=device)
@@ -231,6 +234,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
         video_out.append_data(layout_grid(torch.stack(imgs), grid_w=grid_w, grid_h=grid_h))
     video_out.close()
     all_poses = np.stack(all_poses)
+
 
     if gen_shapes:
         print(all_poses.shape)
