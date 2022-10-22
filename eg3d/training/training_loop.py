@@ -201,7 +201,7 @@ def training_loop(
         print(f'Distributing across {num_gpus} GPUs...')
     for module in [G, D, G_ema, augment_pipe]:
         if module is not None:
-            module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module).to(device)
+            # module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module).to(device)
             for param in misc.params_and_buffers(module):
                 if param.numel() > 0 and num_gpus > 1:
                     torch.distributed.broadcast(param, src=0)
