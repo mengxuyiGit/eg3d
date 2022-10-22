@@ -427,7 +427,7 @@ def training_loop(
             for name, module in [('G', G), ('D', D), ('G_ema', G_ema), ('augment_pipe', augment_pipe)]:
                 if module is not None:
                     if num_gpus > 1:
-                        misc.check_ddp_consistency(module, ignore_regex=r'.*\.[^.]+_(avg|ema)')
+                        misc.check_ddp_consistency(module, ignore_regex=r'.*\.[^.]+_(avg|ema|mean)')
                     module = copy.deepcopy(module).eval().requires_grad_(False).cpu()
                 snapshot_data[name] = module
                 del module # conserve memory
@@ -438,7 +438,7 @@ def training_loop(
 
         # Evaluate metrics.
         # if (snapshot_data is not None) and (len(metrics) > 0):
-        if (snapshot_data is not None) and (len(metrics) > 0) and batch_idx %10 ==0:
+        if (snapshot_data is not None) and (len(metrics) > 0) and batch_idx % 10 ==0:
             if rank == 0:
                 print(run_dir)
                 print('Evaluating metrics...')

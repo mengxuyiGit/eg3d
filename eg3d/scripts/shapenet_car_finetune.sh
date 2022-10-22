@@ -2,8 +2,8 @@
 ##-------- common settings ---------------------
 CUDA_VISIBLE_DEVICES=0
 GPUS=1
-BATCH_SIZE=4
-BASE_DIR=/home/jialin/repo/eg3d
+BATCH_SIZE=2
+BASE_DIR=/home/xuyi/Repo/eg3d
 
 # ##-------- abo/shapenet with triplane -----------
 # # DATA=${BASE_DIR}/dataset_preprocessing/shapenet_cars/cars_128_copy.zip
