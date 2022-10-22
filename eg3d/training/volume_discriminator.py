@@ -117,10 +117,12 @@ class ChamferDistanceBlock(torch.nn.Module):
     def forward(self, c, img, pc, neural_rendering_resolution):
         dtype = torch.float32
         memory_format = torch.contiguous_format
-        _shape = (img['image'].shape[0],1)
+        _batch_size = c.shape[0]
+        _shape = (_batch_size,1)
         _device = img['image'].device
         if pc is None or 'image_depth' not in img:
             return torch.zeros(_shape).to(device=_device, dtype=dtype, memory_format=memory_format)
+        pc = pc[...,:3]
         image_depth = img['image_depth'].view(img['image'].shape[0], -1, 1)
         cam2world_matrix = c[:, :16].view(-1, 4, 4)
         intrinsics = c[:, 16:25].view(-1, 3, 3)
@@ -132,9 +134,16 @@ class ChamferDistanceBlock(torch.nn.Module):
 
         # Create a batch of rays for volume rendering
         ray_origins, ray_directions = self.ray_sampler(cam2world_matrix, intrinsics, neural_rendering_resolution)
+        distance = ray_origins[:,0].unsqueeze(1).repeat(1, pc.shape[1], 1)
+        distance = torch.sqrt(torch.sum((distance - pc) **2, axis=2))
+        max_distance, _ = torch.max(distance, axis = 1)
         pred_pos = image_depth * ray_directions + ray_origins
-        gt_pos = pc[...,:3]
-        chamfer_loss = self.chamfer3d(pred_pos, gt_pos)[self.direction]
+        mask = image_depth.view(_batch_size, -1) < max_distance.view(_batch_size, -1)
+        mask = mask.unsqueeze(-1).expand(pred_pos.size())
+        pred_shape = pred_pos.shape
+        pred_pos = pred_pos[mask].view(pred_shape[0],-1,pred_shape[-1])
+
+        chamfer_loss = self.chamfer3d(pred_pos, pc)[self.direction]
         chamfer_loss = torch.mean(chamfer_loss, dim=1).to(device=_device, dtype=dtype, memory_format=memory_format)
         return chamfer_loss.view(_shape)
 
@@ -210,9 +219,10 @@ class VolumeDualDiscriminator(torch.nn.Module):
             if self.disc_c_noise > 0: c += torch.randn_like(c) * c.std(0) * self.disc_c_noise
             cmap = self.mapping(None, c)
         x = self.b4(x, image, cmap)
-        x += self.chamfer3d(c, img, pc, neural_rendering_resolution)
         
-        return x
+        chamfer_loss = self.chamfer3d(c, img, pc, neural_rendering_resolution)
+
+        return x , chamfer_loss
 
     def extra_repr(self):
         return f'c_dim={self.c_dim:d}, img_resolution={self.img_resolution:d}, img_channels={self.img_channels:d}'
