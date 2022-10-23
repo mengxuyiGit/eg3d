@@ -139,13 +139,13 @@ class ChamferDistanceBlock(torch.nn.Module):
         max_distance, _ = torch.max(distance, axis = 1)
         pred_pos = image_depth * ray_directions + ray_origins
         mask = image_depth.view(_batch_size, -1) < max_distance.view(_batch_size, -1)
-        mask = mask.unsqueeze(-1).expand(pred_pos.size())
-        pred_shape = pred_pos.shape
-        pred_pos = pred_pos[mask].view(pred_shape[0],-1,pred_shape[-1])
+        chamfer_loss = []
+        for pred_, mask_, pc_ in zip(pred_pos.split(1), mask.split(1), pc.split(1)):
+            pred_ = pred_[mask_][None,...]
+            _batch_chamfer_loss = self.chamfer3d(pred_, pc_)[self.direction]
+            chamfer_loss +=  [torch.mean(_batch_chamfer_loss, dim=1).to(device=_device, dtype=dtype, memory_format=memory_format)]
 
-        chamfer_loss = self.chamfer3d(pred_pos, pc)[self.direction]
-        chamfer_loss = torch.mean(chamfer_loss, dim=1).to(device=_device, dtype=dtype, memory_format=memory_format)
-        return chamfer_loss.view(_shape)
+        return torch.stack(chamfer_loss).view(_shape)
 
 @persistence.persistent_class
 class VolumeDualDiscriminator(torch.nn.Module):
