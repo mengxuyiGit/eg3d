@@ -163,6 +163,7 @@ class VolumeDualDiscriminator(torch.nn.Module):
         block_kwargs        = {},       # Arguments for DiscriminatorBlock.
         mapping_kwargs      = {},       # Arguments for MappingNetwork.
         epilogue_kwargs     = {},       # Arguments for DiscriminatorEpilogue.
+        chamfer             = False,    # Whether use chamfer loss
     ):
         super().__init__()
         img_channels *= 2
@@ -197,6 +198,7 @@ class VolumeDualDiscriminator(torch.nn.Module):
         self.b4 = DiscriminatorEpilogue(channels_dict[4], cmap_dim=cmap_dim, resolution=4, **epilogue_kwargs, **common_kwargs)
         self.register_buffer('resample_filter', upfirdn2d.setup_filter([1,3,3,1]))
         self.disc_c_noise = disc_c_noise
+        self.chamfer = chamfer
         self.chamfer3d = ChamferDistanceBlock()
 
     def forward(self, img, c, pc=None, neural_rendering_resolution=None, update_emas=False, **block_kwargs):
@@ -219,9 +221,10 @@ class VolumeDualDiscriminator(torch.nn.Module):
             if self.disc_c_noise > 0: c += torch.randn_like(c) * c.std(0) * self.disc_c_noise
             cmap = self.mapping(None, c)
         x = self.b4(x, image, cmap)
-        
-        chamfer_loss = self.chamfer3d(c, img, pc, neural_rendering_resolution)
 
+        chamfer_loss = torch.zeros_like(x)
+        if self.chamfer:
+            chamfer_loss = self.chamfer3d(c, img, pc, neural_rendering_resolution)
         return x , chamfer_loss
 
     def extra_repr(self):

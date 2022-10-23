@@ -38,4 +38,6 @@ python ../train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA
   --neural_rendering_resolution_initial=64 \
   --gpus=${GPUS} --batch=${BATCH_SIZE} --gamma=0.3 \
   --backbone volume --decoder_dim 8 \
-  --noise_strength 0.1
+  --noise_strength 0.1 \
+  --chamfer True
+  

@@ -141,6 +141,7 @@ def parse_comma_separated_list(s):
 
 # Optional features.
 @click.option('--cond',         help='Train conditional model', metavar='BOOL',                 type=bool, default=True, show_default=True)
+@click.option('--chamfer',         help='Add 3d chamfer loss', metavar='BOOL',                  type=bool, default=False, show_default=True)
 @click.option('--mirror',       help='Enable dataset x-flips', metavar='BOOL',                  type=bool, default=False, show_default=True)
 @click.option('--aug',          help='Augmentation mode',                                       type=click.Choice(['noaug', 'ada', 'fixed']), default='noaug', show_default=True)
 @click.option('--resume',       help='Resume from given network pickle', metavar='[PATH|URL]',  type=str)
@@ -391,7 +392,6 @@ def main(**kwargs):
     c.loss_kwargs.neural_rendering_resolution_final = opts.neural_rendering_resolution_final
     c.loss_kwargs.neural_rendering_resolution_fade_kimg = opts.neural_rendering_resolution_fade_kimg
     c.G_kwargs.sr_num_fp16_res = opts.sr_num_fp16_res
-
     c.G_kwargs.sr_kwargs = dnnlib.EasyDict(channel_base=opts.cbase, channel_max=opts.cmax, fused_modconv_default='inference_only')
 
     c.loss_kwargs.style_mixing_prob = opts.style_mixing_prob
@@ -421,7 +421,8 @@ def main(**kwargs):
     c.G_kwargs.conv_clamp = 256 if opts.g_num_fp16_res > 0 else None
     c.D_kwargs.num_fp16_res = opts.d_num_fp16_res
     c.D_kwargs.conv_clamp = 256 if opts.d_num_fp16_res > 0 else None
-
+    c.D_kwargs.chamfer = opts.chamfer
+    
     if opts.nobench:
         c.cudnn_benchmark = False
 
