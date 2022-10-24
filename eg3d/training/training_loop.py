@@ -201,7 +201,6 @@ def training_loop(
         print(f'Distributing across {num_gpus} GPUs...')
     for module in [G, D, G_ema, augment_pipe]:
         if module is not None:
-            # module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module).to(device)
             for param in misc.params_and_buffers(module):
                 if param.numel() > 0 and num_gpus > 1:
                     torch.distributed.broadcast(param, src=0)
@@ -436,8 +435,8 @@ def training_loop(
                     pickle.dump(snapshot_data, f)
 
         # Evaluate metrics.
-        # if (snapshot_data is not None) and (len(metrics) > 0):
-        if (snapshot_data is not None) and (len(metrics) > 0) and batch_idx % 10 ==0:
+        if (snapshot_data is not None) and (len(metrics) > 0):
+        # if (snapshot_data is not None) and (len(metrics) > 0) and batch_idx % 10 ==0:
             if rank == 0:
                 print(run_dir)
                 print('Evaluating metrics...')
