@@ -519,7 +519,8 @@ class SynthesisNetwork(torch.nn.Module):
             setattr(self, f'b{res}', block)
         
         ###### hard-code attr for voxelize #######
-        vfe_feature = 'embedding'
+        # vfe_feature = 'embedding'
+        vfe_feature = 'pointnet'
         self.vfe_feature = vfe_feature
         if self.vfe_feature=='embedding':
             # processed_cat_pt_fea = self.voxel_embed(cat_pt_fea)
@@ -728,7 +729,6 @@ class SynthesisNetwork(torch.nn.Module):
         if self.fea_compre:
             processed_pooled_data = self.fea_compression(pooled_data)
         else:
-            st()
             processed_pooled_data = pooled_data
 
         return unq, processed_pooled_data, batch_densities_volumes, voxel_size
