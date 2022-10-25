@@ -188,7 +188,11 @@ def training_loop(
             img = misc.print_module_summary(G, [z, c, pc])
         else:
             img = misc.print_module_summary(G, [z, c])
-        misc.print_module_summary(D, [img, c])
+        if isinstance(G, VolumeGenerator):
+            real_img = img.copy()
+            misc.print_module_summary(D, [img, c, pc, real_img])
+        else:
+            misc.print_module_summary(D, [img, c])
 
     # Setup augmentation.
     if rank == 0:

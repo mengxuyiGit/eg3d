@@ -77,7 +77,7 @@ class StyleGAN2Loss(Loss):
             gen_output = self.G.synthesis(ws, c, neural_rendering_resolution=neural_rendering_resolution, update_emas=update_emas)
         return gen_output, ws
 
-    def run_D(self, img, c, pc, neural_rendering_resolution,blur_sigma=0, blur_sigma_raw=0,   update_emas=False):
+    def run_D(self, img, c, pc, real_img, neural_rendering_resolution, blur_sigma=0, blur_sigma_raw=0,   update_emas=False):
         blur_size = np.floor(blur_sigma * 3)
         if blur_size > 0:
             with torch.autograd.profiler.record_function('blur'):
@@ -91,8 +91,8 @@ class StyleGAN2Loss(Loss):
             img['image'] = augmented_pair[:, :img['image'].shape[1]]
             img['image_raw'] = torch.nn.functional.interpolate(augmented_pair[:, img['image'].shape[1]:], size=img['image_raw'].shape[2:], mode='bilinear', antialias=True)
         if isinstance(self.D, VolumeDualDiscriminator):
-            logits, chamfer = self.D(img, c, pc, neural_rendering_resolution, update_emas=update_emas)
-            return logits, chamfer
+            logits, chamfer, perception = self.D(img, c, pc, real_img, neural_rendering_resolution, update_emas=update_emas, )
+            return logits, chamfer, perception 
         else:
             logits = self.D(img, c, update_emas=update_emas)
         return logits
@@ -129,13 +129,17 @@ class StyleGAN2Loss(Loss):
         if phase in ['Gmain', 'Gboth']:
             with torch.autograd.profiler.record_function('Gmain_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
-                gen_logits, chamfer = self.run_D(gen_img, gen_c,gen_pc, neural_rendering_resolution=neural_rendering_resolution,  blur_sigma=blur_sigma)
+                # TODO: process returned perception loss, with mean(), and correct scale
+                gen_logits, chamfer, perception = self.run_D(gen_img, gen_c,gen_pc, real_img,
+                                                neural_rendering_resolution=neural_rendering_resolution,  blur_sigma=blur_sigma,
+                                                )
                 training_stats.report('Loss/scores/fake', gen_logits)
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
 
                 loss_Gmain = torch.nn.functional.softplus(-gen_logits)
                 chamfer_loss = torch.nn.functional.softplus(chamfer)
-                loss_Gmain += chamfer_loss
+                loss_Gmain += (chamfer_loss + perception_loss)
+
                 training_stats.report('Loss/G/loss', loss_Gmain)
             with torch.autograd.profiler.record_function('Gmain_backward'):
                 loss_Gmain.mean().mul(gain).backward()
@@ -300,10 +304,20 @@ class StyleGAN2Loss(Loss):
         if phase in ['Dmain', 'Dboth']:
             with torch.autograd.profiler.record_function('Dgen_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution, update_emas=True)
-                gen_logits, chamfer = self.run_D(gen_img, gen_c,gen_pc, neural_rendering_resolution=neural_rendering_resolution,  blur_sigma=blur_sigma, update_emas=True)
+                gen_logits, chamfer, perception  = self.run_D(gen_img, gen_c,gen_pc,real_img, 
+                                                            neural_rendering_resolution=neural_rendering_resolution,  
+                                                            blur_sigma=blur_sigma, update_emas=True,
+                                                            )
                 training_stats.report('Loss/scores/fake', gen_logits)
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
+                training_stats.report('Loss/scores/fake_chamfer', chamfer)
+                training_stats.report('Loss/signs/fake_chamfer', chamfer.sign())
+                training_stats.report('Loss/scores/fake_perception', perception)
+                training_stats.report('Loss/signs/fake_perception', perception.sign())
                 loss_Dgen = torch.nn.functional.softplus(gen_logits)
+                loss_Dgen += torch.nn.functional.softplus(chamfer)
+                loss_Dgen += torch.nn.functional.softplus(perception)
+
             with torch.autograd.profiler.record_function('Dgen_backward'):
                 loss_Dgen.mean().mul(gain).backward()
 
@@ -317,14 +331,28 @@ class StyleGAN2Loss(Loss):
                 real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
 
                 # TODO: ADD gen_pc to discriminator
-                real_logits, chamfer = self.run_D(real_img_tmp, real_c,gen_pc,neural_rendering_resolution=neural_rendering_resolution,  blur_sigma=blur_sigma, update_emas=True)
-                chamfer_loss =  torch.nn.functional.softplus(chamfer)
+                real_logits, chamfer, perception = self.run_D(real_img_tmp, real_c,gen_pc, real_img,
+                                                        neural_rendering_resolution=neural_rendering_resolution,  
+                                                        blur_sigma=blur_sigma, update_emas=True,
+                                                        )
+                
+
                 training_stats.report('Loss/scores/real', real_logits)
                 training_stats.report('Loss/signs/real', real_logits.sign())
+
+                training_stats.report('Loss/scores/real_chamfer', chamfer)
+                training_stats.report('Loss/signs/real_chamfer', chamfer.sign())
+                training_stats.report('Loss/scores/real_perception', perception)
+                training_stats.report('Loss/signs/real_perception', perception.sign())
+                loss_Dgen = torch.nn.functional.softplus(real_logits)
+                loss_Dgen += torch.nn.functional.softplus(chamfer)
+                loss_Dgen += torch.nn.functional.softplus(perception)
 
                 loss_Dreal = 0
                 if phase in ['Dmain', 'Dboth']:
                     loss_Dreal = torch.nn.functional.softplus(-real_logits)
+                    # chamfer_loss =  torch.nn.functional.softplus(chamfer)
+                    # perception_loss =  torch.nn.functional.softplus(perception)
                     training_stats.report('Loss/D/loss', loss_Dgen + loss_Dreal)
 
                 loss_Dr1 = 0
@@ -345,6 +373,6 @@ class StyleGAN2Loss(Loss):
                     training_stats.report('Loss/D/reg', loss_Dr1)
 
             with torch.autograd.profiler.record_function(name + '_backward'):
-                (loss_Dreal + loss_Dr1 + chamfer_loss).mean().mul(gain).backward()
+                (loss_Dreal + loss_Dr1 + chamfer_loss + perception_loss).mean().mul(gain).backward()
 
 #----------------------------------------------------------------------------

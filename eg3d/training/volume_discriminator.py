@@ -19,6 +19,11 @@ from training.networks_stylegan2 import DiscriminatorBlock, MappingNetwork, Disc
 from training.volumetric_rendering.renderer_volume import VolumeImportanceRenderer
 from training.volumetric_rendering.ray_sampler import RaySampler
 
+from ipdb import set_trace as st
+import clip
+import torchvision.transforms as T
+from PIL import Image
+
 @persistence.persistent_class
 class SingleDiscriminator(torch.nn.Module):
     def __init__(self,
@@ -164,6 +169,7 @@ class VolumeDualDiscriminator(torch.nn.Module):
         mapping_kwargs      = {},       # Arguments for MappingNetwork.
         epilogue_kwargs     = {},       # Arguments for DiscriminatorEpilogue.
         chamfer             = False,    # Whether use chamfer loss
+        perception          = False,    # Whether use chamfer loss
     ):
         super().__init__()
         img_channels *= 2
@@ -200,8 +206,59 @@ class VolumeDualDiscriminator(torch.nn.Module):
         self.disc_c_noise = disc_c_noise
         self.chamfer = chamfer
         self.chamfer3d = ChamferDistanceBlock()
+        perception = True
+        perception_scale = 100
+        self.perception = perception
+        self.perception_scale = perception_scale
+        if self.perception:
+            assert not self.chamfer # FIXME: in developing stage, only one loss a time
+            
+    
+    def cal_perception_loss(self, c, gen_img, pc, neural_rendering_resolution, real_img):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # model, preprocess = clip.load("ViT-B/32", device=device) # maybe too large
+        model, preprocess = clip.load("RN50", device=device)
+        
+        # convert to PIL 
+        
+        transform = T.ToPILImage()
+        
+        gen_img_PIL=[]
+        for gi in gen_img['image']:
+            gen_img_PIL.append(preprocess(transform(gi)))
+        gen_img_processed = torch.tensor(np.stack(gen_img_PIL)).to(device)
 
-    def forward(self, img, c, pc=None, neural_rendering_resolution=None, update_emas=False, **block_kwargs):
+        real_img_PIL=[]
+        for ri in real_img['image']:
+            real_img_PIL.append(preprocess(transform(ri)))
+        real_img_processed = torch.tensor(np.stack(real_img_PIL)).to(device)
+
+        # image = preprocess(Image.open("CLIP.png")).unsqueeze(0).to(device)
+        # text = clip.tokenize(["a diagram", "a dog", "a cat"]).to(device)
+        
+
+        with torch.no_grad():
+            # image_features = model.encode_image(image)
+            # text_features = model.encode_text(text)
+            # logits_per_image, logits_per_text = model(image, text)
+            # probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+            # print("Label probs:", probs)  # prints: [[0.9927937  0.00421068 0.00299572]]
+
+            # change to the loss between 2 embeddings
+            gen_image_features = model.encode_image(gen_img_processed).float()
+            real_image_features = model.encode_image(real_img_processed).float()
+            # image_features /= image_features.norm(dim=-1, keepdim=True)
+            # text_features /= text_features.norm(dim=-1, keepdim=True)
+            # gen_image_features /= gen_image_features.norm(dim=-1, keepdim=True)
+            # real_image_features /= real_image_features.norm(dim=-1, keepdim=True)
+            # similarity = (image_features @ text_features.T).softmax(dim=-1)
+            mse = torch.nn.MSELoss(reduce=False)
+            
+            loss = mse(gen_image_features, real_image_features)
+                        
+        return loss
+
+    def forward(self, img, c, pc=None, real_img=None, neural_rendering_resolution=None, update_emas=False,  **block_kwargs):
         image_raw = filtered_resizing(img['image_raw'], size=img['image'].shape[-1], f=self.resample_filter)
         _ = update_emas # unused
         if neural_rendering_resolution is None:
@@ -225,7 +282,14 @@ class VolumeDualDiscriminator(torch.nn.Module):
         chamfer_loss = torch.zeros_like(x)
         if self.chamfer:
             chamfer_loss = self.chamfer3d(c, img, pc, neural_rendering_resolution)
-        return x , chamfer_loss
+        perception_loss = torch.zeros_like(x)
+        if self.perception:
+            # st()
+            # assert real_img is not None
+            perception_loss = self.cal_perception_loss(c, img, pc, neural_rendering_resolution, real_img)
+            perception_loss = torch.mean(perception_loss, 1, True)*self.perception_scale
+            st()
+        return x , chamfer_loss, perception_loss # shape: [B,1]
 
     def extra_repr(self):
         return f'c_dim={self.c_dim:d}, img_resolution={self.img_resolution:d}, img_channels={self.img_channels:d}'
