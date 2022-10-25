@@ -204,7 +204,7 @@ def parse_comma_separated_list(s):
 @click.option('--decoder_dim',    help='OSGDecoder.', metavar='INT',  type=click.IntRange(min=8), required=False, default=32) # default=128 after finishing pipeline
 @click.option('--decoder_outdim',    help='OSGDecoder.', metavar='INT',  type=click.IntRange(min=8), required=False, default=32) # default=128 after finishing pipeline
 @click.option('--use_ray_directions', help='If true, use_ray_directions during rendering.', metavar='BOOL',  type=bool, required=False, default=True)
-@click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.5, show_default=True)
+@click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=10), default=0.5, show_default=True)
 
 # specially for VolumeGenerator
 # chamfer
