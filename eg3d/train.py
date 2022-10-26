@@ -212,9 +212,10 @@ def parse_comma_separated_list(s):
 @click.option('--chamfer_reg',    help='chamfer reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
 @click.option('--use_perception',    help='Use perception loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--perception_reg',    help='perception reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
+@click.option('--use_l1',      help='Use L2 loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
+@click.option('--l1_reg',      help='l2 reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
 @click.option('--use_l2',      help='Use L2 loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--l2_reg',      help='l2 reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
-
 
 def main(**kwargs):
     """Train a GAN using the techniques described in the paper
@@ -409,6 +410,8 @@ def main(**kwargs):
     c.loss_kwargs.style_mixing_prob = opts.style_mixing_prob
     c.loss_kwargs.use_perception  = opts.use_perception
     c.loss_kwargs.perception_reg = opts.perception_reg
+    c.loss_kwargs.use_l1  = opts.use_l1
+    c.loss_kwargs.l1_reg = opts.l1_reg
     c.loss_kwargs.use_l2  = opts.use_l2
     c.loss_kwargs.l2_reg = opts.l2_reg
 

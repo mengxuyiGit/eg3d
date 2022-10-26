@@ -34,7 +34,9 @@ class Loss:
 
 class StyleGAN2Loss(Loss):
     def __init__(self, device, G, D, augment_pipe=None, r1_gamma=10, style_mixing_prob=0, pl_weight=0, pl_batch_shrink=2, pl_decay=0.01, pl_no_weight_grad=False, blur_init_sigma=0, blur_fade_kimg=0, r1_gamma_init=0, r1_gamma_fade_kimg=0, neural_rendering_resolution_initial=64, neural_rendering_resolution_final=None, neural_rendering_resolution_fade_kimg=0, gpc_reg_fade_kimg=1000, gpc_reg_prob=None, dual_discrimination=False, filter_mode='antialiased',
-                    use_perception=False, perception_reg=1, use_l2=False, l2_reg=1, use_chamfer=False, chamfer_reg=1):
+                    use_perception=False, perception_reg=1, 
+                    use_l2=False, l2_reg=1, use_l1=False, l1_reg=1,
+                    use_chamfer=False, chamfer_reg=1):
         super().__init__()
         self.device             = device
         self.G                  = G
@@ -74,6 +76,11 @@ class StyleGAN2Loss(Loss):
                 
         self.use_l2 = use_l2
         self.l2_reg = l2_reg
+
+        self.use_l1 = use_l1
+        if self.use_l1:
+            self.l1_reg = l1_reg
+            self.l1 = torch.nn.L1Loss()
 
         self.use_chamfer = use_chamfer
         if self.use_chamfer:
@@ -158,6 +165,15 @@ class StyleGAN2Loss(Loss):
         loss = mse(gen_image_features, real_image_features)
                         
         return loss
+    
+    def cal_l1_loss(self, gen_img, real_img):
+
+        gen_image_features = gen_img['image']
+        real_image_features = real_img['image']
+        
+        loss = self.l1(gen_image_features, real_image_features)
+                        
+        return loss
 
     def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gen_pc, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
@@ -218,6 +234,15 @@ class StyleGAN2Loss(Loss):
                     print(f"---------loss_perception\t(x{self.perception_reg}): {(perception_loss).sum().item()}-------------")
                 
                     training_stats.report('Loss/G/perceptual_loss', perception_loss)
+
+                # L1 loss on the whole gen image
+                if self.use_l1:
+                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img)
+                    l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
+                    loss_Gmain += l1_loss
+                    print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
+    
+                    training_stats.report('Loss/G/l1_loss_whole', l1_loss)
 
                 # L2 loss on the whole gen image
                 if self.use_l2:
