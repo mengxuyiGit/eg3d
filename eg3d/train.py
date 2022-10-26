@@ -46,6 +46,7 @@ def subprocess_fn(rank, c, temp_dir):
             torch.distributed.init_process_group(backend='nccl', init_method=init_method, rank=rank, world_size=c.num_gpus)
 
     # Init torch_utils.
+
     sync_device = torch.device('cuda', rank) if c.num_gpus > 1 else None
     training_stats.init_multiprocessing(rank=rank, sync_device=sync_device)
     if rank != 0:
@@ -206,8 +207,12 @@ def parse_comma_separated_list(s):
 @click.option('--use_ray_directions', help='If true, use_ray_directions during rendering.', metavar='BOOL',  type=bool, required=False, default=True)
 @click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=10), default=0.5, show_default=True)
 
-# specially for VolumeGenerator
-# chamfer
+
+# specially for VolumeD
+@click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
+@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
+
+# specially for VolumeLoss
 @click.option('--use_chamfer',    help='Use chamfer loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--chamfer_reg',    help='chamfer reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
 @click.option('--use_perception',    help='Use perception loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
@@ -301,13 +306,15 @@ def main(**kwargs):
         c.G_kwargs.volume_res = opts.volume_res
         c.G_kwargs.decoder_dim = opts.decoder_dim
         c.G_kwargs.noise_strength = opts.noise_strength
-        # c.D_kwargs.class_name = 'training.volume_discriminator.VolumeDualDiscriminator'
+        c.D_kwargs.class_name = 'training.patch_discriminator.PatchDualDiscriminator'
+        c.D_kwargs.use_patch = opts.use_patch
         # c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
         # c.G_kwargs.decoder_outdim = opts.decoder_outdim
     else:
         c.G_kwargs.class_name = 'training.triplane.TriPlaneGenerator'
+        c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
         
-    c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
+    
     c.G_kwargs.fused_modconv_default = 'inference_only' # Speed up training by using regular convolutions instead of grouped convolutions.
     c.loss_kwargs.filter_mode = 'antialiased' # Filter mode for raw images ['antialiased', 'none', float [0-1]]
     c.D_kwargs.disc_c_noise = opts.disc_c_noise # Regularization for discriminator pose conditioning
@@ -414,6 +421,9 @@ def main(**kwargs):
     c.loss_kwargs.l1_reg = opts.l1_reg
     c.loss_kwargs.use_l2  = opts.use_l2
     c.loss_kwargs.l2_reg = opts.l2_reg
+    c.loss_kwargs.use_patch = opts.use_patch
+    c.loss_kwargs.patch_reg = opts.patch_reg
+    
 
 
     # Augmentation.

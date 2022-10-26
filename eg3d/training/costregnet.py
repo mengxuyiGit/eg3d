@@ -388,7 +388,6 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         style = style.reshape(B,C,1,1,1) # extend to 3D 
         x = x*style
 
-
         x = conv4 + self.conv7(x)
         if self.use_noise:
             noise = torch.rand(x.shape, device=x.device)
@@ -402,7 +401,6 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         x = x*style
         # del conv4
 
-
         x = conv2 + self.conv9(x)
         if self.use_noise:
             noise = torch.rand(x.shape, device=x.device)
@@ -414,9 +412,6 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         B, C = x.shape[:2]
         style = style.reshape(B,C,1,1,1) # extend to 3D 
         x = x*style
-
-        del conv2, conv4
-
 
         x = conv0 + self.conv11(x)
         if self.use_noise:
@@ -430,8 +425,6 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         style = style.reshape(B,C,1,1,1) # extend to 3D 
         x = x*style
 
-        del conv0
-        
         # print(f"Totally used up to {w_idx} ws in synthesis3DUnet") ## currently used only 5
         
         return x

@@ -36,7 +36,8 @@ class StyleGAN2Loss(Loss):
     def __init__(self, device, G, D, augment_pipe=None, r1_gamma=10, style_mixing_prob=0, pl_weight=0, pl_batch_shrink=2, pl_decay=0.01, pl_no_weight_grad=False, blur_init_sigma=0, blur_fade_kimg=0, r1_gamma_init=0, r1_gamma_fade_kimg=0, neural_rendering_resolution_initial=64, neural_rendering_resolution_final=None, neural_rendering_resolution_fade_kimg=0, gpc_reg_fade_kimg=1000, gpc_reg_prob=None, dual_discrimination=False, filter_mode='antialiased',
                     use_perception=False, perception_reg=1, 
                     use_l2=False, l2_reg=1, use_l1=False, l1_reg=1,
-                    use_chamfer=False, chamfer_reg=1):
+                    use_chamfer=False, chamfer_reg=1,
+                    use_patch=False, patch_reg=1):
         super().__init__()
         self.device             = device
         self.G                  = G
@@ -87,6 +88,9 @@ class StyleGAN2Loss(Loss):
             self.chamfer_reg = chamfer_reg
             self.chamfer_loss = ChamferLoss()
 
+        self.use_patchD = use_patch
+        self.patchD_reg = patch_reg
+
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
         if swapping_prob is not None:
@@ -124,6 +128,10 @@ class StyleGAN2Loss(Loss):
 
         logits = self.D(img, c, update_emas=update_emas)
         return logits
+    
+    def run_patchD(self, img, target):
+        patch_loss = self.D.patchD_forward(img, target)
+        return patch_loss
     
     def cal_perception_loss(self, gen_img, real_img):
         
@@ -209,6 +217,11 @@ class StyleGAN2Loss(Loss):
 
         # Gmain: Maximize logits for generated images.
         if phase in ['Gmain', 'Gboth']:
+            # use real_img with _grad
+            real_img_tmp_image = real_img['image'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
+            real_img_tmp_image_raw = real_img['image_raw'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
+            real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
+
             with torch.autograd.profiler.record_function('Gmain_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
                 
@@ -228,7 +241,7 @@ class StyleGAN2Loss(Loss):
 
                 # perceptual loss
                 if self.use_perception:
-                    perception_loss = self.cal_perception_loss(gen_img=gen_img, real_img=real_img)
+                    perception_loss = self.cal_perception_loss(gen_img=gen_img, real_img=real_img_tmp)
                     perception_loss = torch.mean(perception_loss, 1, True) * self.perception_reg
                     loss_Gmain += perception_loss
                     print(f"---------loss_perception\t(x{self.perception_reg}): {(perception_loss).sum().item()}-------------")
@@ -237,7 +250,7 @@ class StyleGAN2Loss(Loss):
 
                 # L1 loss on the whole gen image
                 if self.use_l1:
-                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img)
+                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img_tmp)
                     l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
                     loss_Gmain += l1_loss
                     print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
@@ -246,17 +259,24 @@ class StyleGAN2Loss(Loss):
 
                 # L2 loss on the whole gen image
                 if self.use_l2:
-                    l2_loss = self.cal_l2_loss(gen_img=gen_img, real_img=real_img)
+                    l2_loss = self.cal_l2_loss(gen_img=gen_img, real_img=real_img_tmp)
                     l2_loss = torch.mean(l2_loss.flatten(1), -1, True) * self.l2_reg
                     loss_Gmain += l2_loss
                     print(f"---------loss_l2\t\t(x{self.l2_reg}): {(l2_loss).sum().item()}-------------")
     
                     training_stats.report('Loss/G/l2_loss_whole', l2_loss)
+                
+                if self.use_patchD:
+                    img = gen_img['image']
+                    target = True
+                    patch_loss = self.run_patchD(img, target)
+                    loss_Gmain += patch_loss
+                    print(f"---------loss_patch\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
+                    training_stats.report('Loss/G/patch_loss_fake',patch_loss)
 
 
             with torch.autograd.profiler.record_function('Gmain_backward'):
                 loss_Gmain.mean().mul(gain).backward()
-
         
         
 
@@ -425,28 +445,48 @@ class StyleGAN2Loss(Loss):
                 training_stats.report('Loss/scores/fake', gen_logits)
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
                 loss_Dgen = torch.nn.functional.softplus(gen_logits)
+                
+                if self.use_patchD:
+                    img = gen_img['image']
+                    target = False
+                    patch_loss_Dgen = self.run_patchD(img, target)
+                    loss_Dgen += patch_loss_Dgen
+                    training_stats.report('Loss/D/patch_loss_fake', patch_loss_Dgen)
+                    print(f"---------loss_patch Dfake\t\t(x{self.patchD_reg}): {(patch_loss_Dgen).sum().item()}-------------")
+
             with torch.autograd.profiler.record_function('Dgen_backward'):
                 loss_Dgen.mean().mul(gain).backward()
 
         # Dmain: Maximize logits for real images.
         # Dr1: Apply R1 regularization.
         if phase in ['Dmain', 'Dreg', 'Dboth']:
+            loss_Dreal = 0
+
             name = 'Dreal' if phase == 'Dmain' else 'Dr1' if phase == 'Dreg' else 'Dreal_Dr1'
             with torch.autograd.profiler.record_function(name + '_forward'):
                 real_img_tmp_image = real_img['image'].detach().requires_grad_(phase in ['Dreg', 'Dboth'])
                 real_img_tmp_image_raw = real_img['image_raw'].detach().requires_grad_(phase in ['Dreg', 'Dboth'])
                 real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
 
-                # TODO: ADD gen_pc to discriminator
                 real_logits = self.run_D(real_img_tmp, real_c, blur_sigma=blur_sigma, update_emas=True)
                 
                 training_stats.report('Loss/scores/real', real_logits)
                 training_stats.report('Loss/signs/real', real_logits.sign())
 
-                loss_Dreal = 0
+             
+                if self.use_patchD:
+                    img = real_img_tmp_image
+                    target = True
+                    patch_loss_Dreal = self.run_patchD(img, target)
+                    loss_Dreal += patch_loss_Dreal
+                    print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal).sum().item()}-------------")
+                    training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
+
                 if phase in ['Dmain', 'Dboth']:
-                    loss_Dreal = torch.nn.functional.softplus(-real_logits)
-                    training_stats.report('Loss/D/loss', loss_Dgen + loss_Dreal)
+                    _loss_Dreal = torch.nn.functional.softplus(-real_logits)
+                    training_stats.report('Loss/D/loss', _loss_Dreal)
+                    loss_Dreal +=  _loss_Dreal 
+                    training_stats.report('Loss/D/loss(gen+real)', loss_Dgen + loss_Dreal)
 
                 loss_Dr1 = 0
                 if phase in ['Dreg', 'Dboth']:
