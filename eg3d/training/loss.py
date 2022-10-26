@@ -22,8 +22,8 @@ from ipdb import set_trace as st
 from training.volume import VolumeGenerator
 
 import clip
-from PIL import Image
-from torchvision.transforms import T, Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
+# from PIL import Image
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
     
 #----------------------------------------------------------------------------
 

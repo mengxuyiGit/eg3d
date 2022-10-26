@@ -40,8 +40,7 @@ python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --gpus=${GPUS} --batch=${BATCH_SIZE} --gamma=0.3 \
   --backbone volume --decoder_dim 8 \
   --noise_strength 0.1 --snap 1 \
-  --use_patch False --stylegan_reg 0
-
-  # --use_perception True --perception_reg 1 \
-  # --use_l1 True \
-  # --use_chamfer True \
+  --use_patch False --stylegan_reg 0 \
+  --use_perception True --perception_reg 1 \
+  --use_l1 True \
+  --use_chamfer False
