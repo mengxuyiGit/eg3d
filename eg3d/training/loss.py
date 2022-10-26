@@ -22,8 +22,9 @@ from ipdb import set_trace as st
 from training.volume import VolumeGenerator
 
 import clip
-import torchvision.transforms as T
 from PIL import Image
+from torchvision.transforms import T, Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
+    
 #----------------------------------------------------------------------------
 
 class Loss:
@@ -71,7 +72,14 @@ class StyleGAN2Loss(Loss):
             # device = "cuda" if torch.cuda.is_available() else "cpu"
             # self.perception_reg = 1 # ViT will give larger loss
             # model, preprocess = clip.load("RN50", device=device)
-            self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device=device) # maybe too large
+            self.clip_model, _clip_preprocess = clip.load("ViT-B/32", device=device) # maybe too large
+            n_px = 224
+            self.my_process = Compose([
+                    Resize(n_px, interpolation=InterpolationMode.BICUBIC),
+                    # CenterCrop(n_px), # unnecessary
+                    Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+                ])
+
             for p in self.clip_model.parameters():
                 p.requires_grad=False
                 
@@ -136,29 +144,30 @@ class StyleGAN2Loss(Loss):
     
     def cal_perception_loss(self, gen_img, real_img):
         
-        # convert to PIL 
-        transform = T.ToPILImage()
+        # # convert to PIL 
+        # transform = T.ToPILImage()
 
-        gen_img_PIL=[]
-        # currently all images are normalized within -1~1
-        for gi in gen_img['image']:
-            # gi = (gi+1.)/2 # no difference
-            gen_img_PIL.append(self.clip_preprocess(transform(gi)))
-        gen_img_processed = torch.tensor(np.stack(gen_img_PIL)).to(self.device)
+        # gen_img_PIL=[]
+        # # currently all images are normalized within -1~1
+        # for gi in gen_img['image']:
+        #     # gi = (gi+1.)/2 # no difference
+        #     gen_img_PIL.append(self.clip_preprocess(transform(gi)))
+        # gen_img_processed = torch.tensor(np.stack(gen_img_PIL)).to(self.device)
 
-        real_img_PIL=[]
-        for ri in real_img['image']:
-            # ri = (ri+1.)/2 # no difference
-            real_img_PIL.append(self.clip_preprocess(transform(ri)))
-        real_img_processed = torch.tensor(np.stack(real_img_PIL)).to(self.device)
+        # real_img_PIL=[]
+        # for ri in real_img['image']:
+        #     # ri = (ri+1.)/2 # no difference
+        #     real_img_PIL.append(self.clip_preprocess(transform(ri)))
+        # real_img_processed = torch.tensor(np.stack(real_img_PIL)).to(self.device)
 
-        # image = preprocess(Image.open("CLIP.png")).unsqueeze(0).to(device)
-        # text = clip.tokenize(["a diagram", "a dog", "a cat"]).to(device)
+        ################## the above is discarded ####################
 
+        gen_img_processed = self.my_process(gen_img['image'])
+        real_img_processed = self.my_process(real_img['image'])
+       
         gen_image_features = self.clip_model.encode_image(gen_img_processed).float()
         real_image_features = self.clip_model.encode_image(real_img_processed).float()
         
-        ## below MSUT NOT in no_grad!
         mse = torch.nn.MSELoss(reduction='none')
         loss = mse(gen_image_features, real_image_features)
                         
