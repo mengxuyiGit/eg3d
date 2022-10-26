@@ -33,7 +33,7 @@ import numpy as np
 #----------------------------------------------------------------------------
 
 def subprocess_fn(rank, c, temp_dir):
-    dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
+    # dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
 
     # Init torch.distributed.
     if c.num_gpus > 1:
@@ -58,7 +58,7 @@ def subprocess_fn(rank, c, temp_dir):
 #----------------------------------------------------------------------------
 
 def launch_training(c, desc, outdir, dry_run):
-    dnnlib.util.Logger(should_flush=True)
+    # dnnlib.util.Logger(should_flush=True)
 
     # Pick output directory.
     prev_run_dirs = []
@@ -211,6 +211,7 @@ def parse_comma_separated_list(s):
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
+@click.option('--stylegan_reg',    help='weight of original style gan loss', metavar='FLOAT', type=click.FloatRange(min=0.0), default=1, required=False, show_default=True)
 
 # specially for VolumeLoss
 @click.option('--use_chamfer',    help='Use chamfer loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
@@ -423,6 +424,7 @@ def main(**kwargs):
     c.loss_kwargs.l2_reg = opts.l2_reg
     c.loss_kwargs.use_patch = opts.use_patch
     c.loss_kwargs.patch_reg = opts.patch_reg
+    c.loss_kwargs.stylegan_reg = opts.stylegan_reg
     
 
 

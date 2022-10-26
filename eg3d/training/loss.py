@@ -37,7 +37,7 @@ class StyleGAN2Loss(Loss):
                     use_perception=False, perception_reg=1, 
                     use_l2=False, l2_reg=1, use_l1=False, l1_reg=1,
                     use_chamfer=False, chamfer_reg=1,
-                    use_patch=False, patch_reg=1):
+                    use_patch=False, patch_reg=1, stylegan_reg=1):
         super().__init__()
         self.device             = device
         self.G                  = G
@@ -90,6 +90,7 @@ class StyleGAN2Loss(Loss):
 
         self.use_patchD = use_patch
         self.patchD_reg = patch_reg
+        self.stylegan_reg = stylegan_reg
 
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
@@ -189,6 +190,7 @@ class StyleGAN2Loss(Loss):
         if self.G.rendering_kwargs.get('density_reg', 0) == 0:
             phase = {'Greg': 'none', 'Gboth': 'Gmain'}.get(phase, phase)
         ###############################
+        print("phase", phase)
         if self.r1_gamma == 0:
             phase = {'Dreg': 'none', 'Dboth': 'Dmain'}.get(phase, phase)
         blur_sigma = max(1 - cur_nimg / (self.blur_fade_kimg * 1e3), 0) * self.blur_init_sigma if self.blur_fade_kimg > 0 else 0
@@ -228,7 +230,8 @@ class StyleGAN2Loss(Loss):
                 gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
                 training_stats.report('Loss/scores/fake', gen_logits)
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
-                loss_Gmain = torch.nn.functional.softplus(-gen_logits)
+                loss_Gmain = torch.nn.functional.softplus(-gen_logits)*self.stylegan_reg
+                print("loss_Gmain ", loss_Gmain.mean())
                 training_stats.report('Loss/G/loss', loss_Gmain)
 
                 # chamfer loss
@@ -269,9 +272,9 @@ class StyleGAN2Loss(Loss):
                 if self.use_patchD:
                     img = gen_img['image']
                     target = True
-                    patch_loss = self.run_patchD(img, target)
+                    patch_loss = self.run_patchD(img, target)*self.patchD_reg
                     loss_Gmain += patch_loss
-                    print(f"---------loss_patch\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
+                    print(f"---------loss_patch G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
                     training_stats.report('Loss/G/patch_loss_fake',patch_loss)
 
 
@@ -444,12 +447,13 @@ class StyleGAN2Loss(Loss):
                 gen_logits = self.run_D(gen_img, gen_c, blur_sigma=blur_sigma, update_emas=True)
                 training_stats.report('Loss/scores/fake', gen_logits)
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
-                loss_Dgen = torch.nn.functional.softplus(gen_logits)
+                loss_Dgen = torch.nn.functional.softplus(gen_logits)*self.stylegan_reg
+                print("loss_Dgen ", loss_Dgen.mean())
                 
                 if self.use_patchD:
                     img = gen_img['image']
                     target = False
-                    patch_loss_Dgen = self.run_patchD(img, target)
+                    patch_loss_Dgen = self.run_patchD(img, target)*self.patchD_reg
                     loss_Dgen += patch_loss_Dgen
                     training_stats.report('Loss/D/patch_loss_fake', patch_loss_Dgen)
                     print(f"---------loss_patch Dfake\t\t(x{self.patchD_reg}): {(patch_loss_Dgen).sum().item()}-------------")
@@ -474,19 +478,22 @@ class StyleGAN2Loss(Loss):
                 training_stats.report('Loss/signs/real', real_logits.sign())
 
              
-                if self.use_patchD:
-                    img = real_img_tmp_image
-                    target = True
-                    patch_loss_Dreal = self.run_patchD(img, target)
-                    loss_Dreal += patch_loss_Dreal
-                    print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal).sum().item()}-------------")
-                    training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
+                
 
                 if phase in ['Dmain', 'Dboth']:
-                    _loss_Dreal = torch.nn.functional.softplus(-real_logits)
+                    _loss_Dreal = torch.nn.functional.softplus(-real_logits)*self.stylegan_reg
                     training_stats.report('Loss/D/loss', _loss_Dreal)
-                    loss_Dreal +=  _loss_Dreal 
+                    loss_Dreal +=  _loss_Dreal.mean()
                     training_stats.report('Loss/D/loss(gen+real)', loss_Dgen + loss_Dreal)
+                    print("loss_Dreal ", _loss_Dreal.mean())
+
+                    if self.use_patchD:
+                        img = real_img_tmp_image
+                        target = True
+                        patch_loss_Dreal = self.run_patchD(img, target)*self.patchD_reg
+                        loss_Dreal += patch_loss_Dreal
+                        print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal).sum().item()}-------------")
+                        training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
 
                 loss_Dr1 = 0
                 if phase in ['Dreg', 'Dboth']:
