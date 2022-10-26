@@ -80,7 +80,7 @@ class StyleGAN2Loss(Loss):
         self.use_l1 = use_l1
         if self.use_l1:
             self.l1_reg = l1_reg
-            self.l1 = torch.nn.L1Loss()
+            self.l1 = torch.nn.L1Loss(reduction='none')
 
         self.use_chamfer = use_chamfer
         if self.use_chamfer:
