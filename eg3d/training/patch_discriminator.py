@@ -147,12 +147,15 @@ class PatchDiscriminator(torch.nn.Module):
         self.criterionGAN = networks_pix.GANLoss(gan_mode) #.to(self.device)
         
 
-    def forward(self, img, target:bool):
+    def forward(self, img, target:bool, return_pred=False):
         
         pred = self.patchD(img)
         patch_loss = self.criterionGAN(pred, target)
-
-        return patch_loss
+        
+        if return_pred:
+            return patch_loss, pred
+        else:
+            return patch_loss
 
 
 #----------------------------------------------------------------------------
