@@ -22,8 +22,8 @@ from ipdb import set_trace as st
 from training.volume import VolumeGenerator
 
 import clip
-from PIL import Image
-from torchvision.transforms import T, Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
+import PIL
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
     
 #----------------------------------------------------------------------------
 
@@ -38,7 +38,8 @@ class StyleGAN2Loss(Loss):
                     use_perception=False, perception_reg=1, 
                     use_l2=False, l2_reg=1, use_l1=False, l1_reg=1,
                     use_chamfer=False, chamfer_reg=1,
-                    use_patch=False, patch_reg=1):
+                    use_patch=False, patch_reg=1,
+                    discriminator_condition_on_real=False, drop_pixel_ratio=0.8):
         super().__init__()
         self.device             = device
         self.G                  = G
@@ -98,6 +99,8 @@ class StyleGAN2Loss(Loss):
 
         self.use_patchD = use_patch
         self.patchD_reg = patch_reg
+        self.discriminator_condition_on_real = discriminator_condition_on_real
+        self.drop_pixel_ratio  = drop_pixel_ratio
 
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
@@ -138,7 +141,8 @@ class StyleGAN2Loss(Loss):
         return logits
     
     def run_patchD(self, img, target):
-        patch_loss = self.D.patchD_forward(img, target)
+        # patch_loss = self.D.patchD_forward(img, target)
+        patch_loss = self.D(img, target)
         return patch_loss
     
     def cal_perception_loss(self, gen_img, real_img):
@@ -192,6 +196,69 @@ class StyleGAN2Loss(Loss):
                         
         return loss
 
+    def save_image_(self, img, fname, drange):
+        lo, hi = drange
+        img = np.asarray(img.cpu(), dtype=np.float32)
+        img = (img - lo) * (255 / (hi - lo))
+        img = np.rint(img).clip(0, 255).astype(np.uint8)
+
+        B, C, H, W = img.shape
+
+        img = img.transpose(2,0,3,1)
+        img = img.reshape([H, B*W, C])
+
+        assert C in [1, 3]
+        if C == 1:
+            PIL.Image.fromarray(img[:, :, 0], 'L').save(fname)
+        if C == 3:
+            PIL.Image.fromarray(img, 'RGB').save(fname)
+            
+    
+    def drop_out_pixels(self, img, drop_as='white', p=None):
+   
+        B,C,H,W = img.shape
+        total_pixels = H*W
+        drop_ratio = self.drop_pixel_ratio
+
+        if p is None:
+            all_idx = torch.arange(0,total_pixels)
+            p = torch.ones_like(all_idx).float()
+            # # below is to apply doifferent drop out to difference sample in batch
+            # p = torch.ones([B,total_pixels]).float()
+        
+
+        print(total_pixels)
+        n = int(total_pixels*drop_ratio)
+        replace = False
+        drop_idx = p.multinomial(num_samples=n, replacement=replace)
+        
+        if drop_idx.shape[0] == B:
+            for _di in drop_idx:
+                assert len(torch.unique(_di))==n # no repeatitve drop
+        else:
+            assert len(torch.unique(drop_idx))==n
+        
+
+        assert drop_as in ['white', 'black']
+        if drop_as == 'white':
+            drop_as_white = img.detach().clone().flatten(-2)
+            drop_as_white[...,drop_idx] = 1
+            drop_as_white = drop_as_white.reshape(B,C,128,128)
+            result =  drop_as_white
+
+        elif drop_as == 'black':
+            drop_as_black = img.detach().clone().flatten(-2)
+            drop_as_black[...,drop_idx] = 0
+            drop_as_black = drop_as_black.reshape(B,C,128,128)
+            result = drop_as_black
+        
+        # # Aux func to check correctness
+        # st()
+        # self.save_image_(result, 'drop_pixel_result.png', [-1,1])
+
+        return result
+        
+
     def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gen_pc, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
         ############# FIXME Oct 25: uncomment below to still enable Greg phase ##################
@@ -226,19 +293,38 @@ class StyleGAN2Loss(Loss):
 
         # Gmain: Maximize logits for generated images.
         if phase in ['Gmain', 'Gboth']:
-            # use real_img with _grad
-            real_img_tmp_image = real_img['image'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
-            real_img_tmp_image_raw = real_img['image_raw'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
-            real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
+            # # use real_img with _grad
+            # real_img_tmp_image = real_img['image'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
+            # real_img_tmp_image_raw = real_img['image_raw'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
+            # real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
 
             with torch.autograd.profiler.record_function('Gmain_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
                 
-                gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
-                training_stats.report('Loss/scores/fake', gen_logits)
-                training_stats.report('Loss/signs/fake', gen_logits.sign())
-                loss_Gmain = torch.nn.functional.softplus(-gen_logits)
-                training_stats.report('Loss/G/loss', loss_Gmain)
+
+                if self.use_patchD:
+             
+                    if self.discriminator_condition_on_real: # cat with pixel_dropped image
+                        gi = gen_img['image']
+                        ri = self.drop_out_pixels(real_img['image'].detach().clone())
+                        img = torch.cat([ri, gi], 1)
+                        
+                    else: 
+                        img = gen_img['image']
+                       
+                    target = True
+                    patch_loss = self.run_patchD(img, target)
+                    loss_Gmain = patch_loss
+                    print(f"---------loss_patch\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
+                    training_stats.report('Loss/G/patch_loss_fake',patch_loss)
+                    training_stats.report('Loss/G/loss', loss_Gmain)
+                
+                else:
+                    gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
+                    training_stats.report('Loss/scores/fake', gen_logits)
+                    training_stats.report('Loss/signs/fake', gen_logits.sign())
+                    loss_Gmain = torch.nn.functional.softplus(-gen_logits)
+                    training_stats.report('Loss/G/loss', loss_Gmain)
 
                 # chamfer loss
                 if self.use_chamfer:
@@ -275,13 +361,7 @@ class StyleGAN2Loss(Loss):
     
                     training_stats.report('Loss/G/l2_loss_whole', l2_loss)
                 
-                if self.use_patchD:
-                    img = gen_img['image']
-                    target = True
-                    patch_loss = self.run_patchD(img, target)
-                    loss_Gmain += patch_loss
-                    print(f"---------loss_patch\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
-                    training_stats.report('Loss/G/patch_loss_fake',patch_loss)
+                
 
 
             with torch.autograd.profiler.record_function('Gmain_backward'):

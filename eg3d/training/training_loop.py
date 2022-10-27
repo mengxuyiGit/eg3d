@@ -188,7 +188,15 @@ def training_loop(
             img = misc.print_module_summary(G, [z, c, pc])
         else:
             img = misc.print_module_summary(G, [z, c])
-        misc.print_module_summary(D, [img, c])
+
+        from training.patch_discriminator import PatchDiscriminator
+        if isinstance(D, PatchDiscriminator):
+            img_d = img['image']
+            if loss_kwargs.discriminator_condition_on_real:
+                img_d = torch.cat([img_d, img_d], 1) # [B,6,H,W]
+            misc.print_module_summary(D, [img_d, True])
+        else:
+            misc.print_module_summary(D, [img, c])
 
     # Setup augmentation.
     if rank == 0:

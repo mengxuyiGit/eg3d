@@ -33,7 +33,7 @@ import numpy as np
 #----------------------------------------------------------------------------
 
 def subprocess_fn(rank, c, temp_dir):
-    dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
+    # dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
 
     # Init torch.distributed.
     if c.num_gpus > 1:
@@ -58,7 +58,7 @@ def subprocess_fn(rank, c, temp_dir):
 #----------------------------------------------------------------------------
 
 def launch_training(c, desc, outdir, dry_run):
-    dnnlib.util.Logger(should_flush=True)
+    # dnnlib.util.Logger(should_flush=True)
 
     # Pick output directory.
     prev_run_dirs = []
@@ -212,6 +212,9 @@ def parse_comma_separated_list(s):
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
 
+@click.option('--discriminator_condition_on_real',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
+@click.option('--drop_pixel_ratio',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.8, required=False, show_default=True)
+
 # specially for VolumeLoss
 @click.option('--use_chamfer',    help='Use chamfer loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--chamfer_reg',    help='chamfer reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
@@ -306,9 +309,14 @@ def main(**kwargs):
         c.G_kwargs.volume_res = opts.volume_res
         c.G_kwargs.decoder_dim = opts.decoder_dim
         c.G_kwargs.noise_strength = opts.noise_strength
-        c.D_kwargs.class_name = 'training.patch_discriminator.PatchDualDiscriminator'
         c.D_kwargs.use_patch = opts.use_patch
-        # c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
+        if opts.use_patch:
+            c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'
+            if opts.discriminator_condition_on_real:
+                c.D_kwargs.input_nc = 6
+        else:
+            assert not opts.discriminator_condition_on_real # not supporting 
+            c.D_kwargs.class_name = 'training.patch_discriminator.DualDiscriminator'
         # c.G_kwargs.decoder_outdim = opts.decoder_outdim
     else:
         c.G_kwargs.class_name = 'training.triplane.TriPlaneGenerator'
@@ -423,6 +431,8 @@ def main(**kwargs):
     c.loss_kwargs.l2_reg = opts.l2_reg
     c.loss_kwargs.use_patch = opts.use_patch
     c.loss_kwargs.patch_reg = opts.patch_reg
+    c.loss_kwargs.discriminator_condition_on_real = opts.discriminator_condition_on_real
+    c.loss_kwargs.drop_pixel_ratio = opts.drop_pixel_ratio
     
 
 

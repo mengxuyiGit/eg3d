@@ -18,6 +18,8 @@ from torch_utils.ops import upfirdn2d
 from training.networks_stylegan2 import DiscriminatorBlock, MappingNetwork, DiscriminatorEpilogue
 from training import networks_pix
 
+from ipdb import set_trace as st
+
 @persistence.persistent_class
 class SingleDiscriminator(torch.nn.Module):
     def __init__(self,
@@ -105,7 +107,59 @@ def filtered_resizing(image_orig_tensor, size, f, filter_mode='antialiased'):
 #----------------------------------------------------------------------------
 
 @persistence.persistent_class
-class PatchDualDiscriminator(torch.nn.Module):
+class PatchDiscriminator(torch.nn.Module):
+    def __init__(self,
+        c_dim,                          # Conditioning label (C) dimensionality.
+        img_resolution,                 # Input resolution.
+        img_channels,                   # Number of input color channels.
+        architecture        = 'resnet', # Architecture: 'orig', 'skip', 'resnet'.
+        channel_base        = 32768,    # Overall multiplier for the number of channels.
+        channel_max         = 512,      # Maximum number of channels in any layer.
+        num_fp16_res        = 4,        # Use FP16 for the N highest resolutions.
+        conv_clamp          = 256,      # Clamp the output of convolution layers to +-X, None = disable clamping.
+        cmap_dim            = None,     # Dimensionality of mapped conditioning label, None = default.
+        disc_c_noise        = 0,        # Corrupt camera parameters with X std dev of noise before disc. pose conditioning.
+        #########################
+        use_patch           = False,
+        input_nc            =3,         # assume single image into patchD
+        #########################
+        block_kwargs        = {},       # Arguments for DiscriminatorBlock.
+        mapping_kwargs      = {},       # Arguments for MappingNetwork.
+        epilogue_kwargs     = {},       # Arguments for DiscriminatorEpilogue.
+    ):
+        super().__init__()
+
+        ## patchD
+        assert use_patch
+        
+        
+        ndf=64
+        netD = 'basic'
+        n_layers_D = 4 # useless if netD is not n_layers, 'basic' will be 3 layers
+        norm='instance'
+        init_type='normal'
+        init_gain=0.02
+        gpu_ids = [] # DDP will be handled in the training loop
+        self.patchD = networks_pix.define_D(input_nc, ndf, netD,
+                                        n_layers_D, norm, init_type, init_gain, gpu_ids)
+        
+        gan_mode = 'lsgan'
+        self.criterionGAN = networks_pix.GANLoss(gan_mode) #.to(self.device)
+        
+
+    def forward(self, img, target:bool):
+        
+        pred = self.patchD(img)
+        patch_loss = self.criterionGAN(pred, target)
+
+        return patch_loss
+
+
+#----------------------------------------------------------------------------
+
+
+@persistence.persistent_class
+class DualDiscriminator(torch.nn.Module):
     def __init__(self,
         c_dim,                          # Conditioning label (C) dimensionality.
         img_resolution,                 # Input resolution.
@@ -157,31 +211,9 @@ class PatchDualDiscriminator(torch.nn.Module):
         self.register_buffer('resample_filter', upfirdn2d.setup_filter([1,3,3,1]))
         self.disc_c_noise = disc_c_noise
 
-        ## patchD
-        self.use_patchD = use_patch
-        if self.use_patchD:
-            input_nc=3 # assume single image into patchD
-            ndf=64
-            netD = 'basic'
-            n_layers_D = 4 # useless if netD is not n_layers, 'basic' will be 3 layers
-            norm='instance'
-            init_type='normal'
-            init_gain=0.02
-            gpu_ids = [] # DDP will be handled in the training loop
-            self.patchD = networks_pix.define_D(input_nc, ndf, netD,
-                                          n_layers_D, norm, init_type, init_gain, gpu_ids)
-            
-            gan_mode = 'lsgan'
-            self.criterionGAN = networks_pix.GANLoss(gan_mode) #.to(self.device)
-        
-
-    def patchD_forward(self, img, target:bool):
-        pred = self.patchD(img)
-        patch_loss = self.criterionGAN(pred, target)
-
-        return patch_loss
-
     def forward(self, img, c, update_emas=False, **block_kwargs):
+        assert not self.use_patchD # only one discriminator at a time
+
         image_raw = filtered_resizing(img['image_raw'], size=img['image'].shape[-1], f=self.resample_filter)
         img = torch.cat([img['image'], image_raw], 1)
 
