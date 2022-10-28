@@ -314,6 +314,8 @@ def main(**kwargs):
             c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'
             if opts.discriminator_condition_on_real:
                 c.D_kwargs.input_nc = 6
+            else:
+                c.D_kwargs.input_nc = 3
         else:
             assert not opts.discriminator_condition_on_real # not supporting 
             c.D_kwargs.class_name = 'training.patch_discriminator.DualDiscriminator'
