@@ -32,6 +32,8 @@ import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
 from training.costregnet import CostRegNet_Deeper, Synthesis3DUnet
+
+
 #----------------------------------------------------------------------------
 
 @misc.profiled_function
@@ -790,6 +792,7 @@ class Generator(torch.nn.Module):
         pc_dim,                     # Conditioning poincloud (PC) dimensionality.
         volume_res,                 # Volume resolution.
         noise_strength,             # Factor to multiply with noise in the 3D Unet block.
+       
         ##########################################
         img_resolution,             # Output resolution.
         img_channels,               # Number of output color channels.
@@ -809,9 +812,11 @@ class Generator(torch.nn.Module):
         self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength, img_channels=img_channels, **synthesis_kwargs)
         self.num_ws = self.synthesis.num_ws
         self.mapping = MappingNetwork(z_dim=z_dim, c_dim=c_dim, w_dim=w_dim, num_ws=self.num_ws, **mapping_kwargs)
+        
 
     def forward(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, update_emas=False, **synthesis_kwargs):
         # TODO: whether to include pc info during self.mapping??
+        
         ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
         img = self.synthesis(ws, pc, update_emas=update_emas, **synthesis_kwargs)
         return img

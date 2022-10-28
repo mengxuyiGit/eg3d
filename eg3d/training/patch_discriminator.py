@@ -175,7 +175,7 @@ class DualDiscriminator(torch.nn.Module):
         cmap_dim            = None,     # Dimensionality of mapped conditioning label, None = default.
         disc_c_noise        = 0,        # Corrupt camera parameters with X std dev of noise before disc. pose conditioning.
         #########################
-        use_patch          = False,
+        # use_patch          = False,
         #########################
         block_kwargs        = {},       # Arguments for DiscriminatorBlock.
         mapping_kwargs      = {},       # Arguments for MappingNetwork.
@@ -215,7 +215,6 @@ class DualDiscriminator(torch.nn.Module):
         self.disc_c_noise = disc_c_noise
 
     def forward(self, img, c, update_emas=False, **block_kwargs):
-        assert not self.use_patchD # only one discriminator at a time
 
         image_raw = filtered_resizing(img['image_raw'], size=img['image'].shape[-1], f=self.resample_filter)
         img = torch.cat([img['image'], image_raw], 1)

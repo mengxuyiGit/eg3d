@@ -27,6 +27,7 @@ from training.volumetric_rendering.ray_sampler import RaySampler
 import dnnlib
 
 from ipdb import set_trace as st
+from training.model_pointnet import PointNetfeat
 
 @persistence.persistent_class
 class VolumeGenerator(torch.nn.Module):
@@ -41,6 +42,7 @@ class VolumeGenerator(torch.nn.Module):
         volume_res,                 # Volume resolution.
         decoder_dim,
         noise_strength,      
+        z_from_pc,
         ##########################################
         sr_num_fp16_res     = 0,
         mapping_kwargs      = {},   # Arguments for MappingNetwork.
@@ -54,6 +56,10 @@ class VolumeGenerator(torch.nn.Module):
         ####### newly added parameters ######
         self.pc_dim=pc_dim
         self.volume_res=volume_res
+
+        self.z_from_pc = z_from_pc
+        if self.z_from_pc:
+            self.pc2z = PointNetfeat()
         ##########################################
         self.w_dim=w_dim
         self.img_resolution=img_resolution
@@ -79,12 +85,18 @@ class VolumeGenerator(torch.nn.Module):
         self._last_planes = None
         self.log_idx = 0
     
-    def mapping(self, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False):
+    def mapping(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, update_emas=False):
+        
+        # instead of randomly sample z, condition it on input pc
+        if self.z_from_pc:
+            z,_,_ = self.pc2z(pc.permute(0,2,1))
+
         if self.rendering_kwargs['c_gen_conditioning_zero']: # True
             c = torch.zeros_like(c)
             # st()
         else:
             st() # make the generation condition on camera pose
+        
         return self.backbone.mapping(z, c * self.rendering_kwargs.get('c_scale', 0), truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
 
     def synthesis(self, ws, c, pc=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
@@ -174,7 +186,7 @@ class VolumeGenerator(torch.nn.Module):
         # print('foward in Volumegenerator', self.log_idx)
 
         # Render a batch of generated images.
-        ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas) # (4, 14, 512)
+        ws = self.mapping(z, c, pc, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas) # (4, 14, 512)
         return self.synthesis(ws, c, pc=pc, update_emas=update_emas, neural_rendering_resolution=neural_rendering_resolution, cache_backbone=cache_backbone, use_cached_backbone=use_cached_backbone, **synthesis_kwargs)
 
 

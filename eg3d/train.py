@@ -206,7 +206,7 @@ def parse_comma_separated_list(s):
 @click.option('--decoder_outdim',    help='OSGDecoder.', metavar='INT',  type=click.IntRange(min=8), required=False, default=32) # default=128 after finishing pipeline
 @click.option('--use_ray_directions', help='If true, use_ray_directions during rendering.', metavar='BOOL',  type=bool, required=False, default=True)
 @click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=10), default=0.5, show_default=True)
-
+@click.option('--z_from_pc', help='Latent z is not randomly sampled, but condition on input point cloud.', metavar='BOOL',  type=bool, required=False, default=False)
 
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
@@ -309,9 +309,11 @@ def main(**kwargs):
         c.G_kwargs.volume_res = opts.volume_res
         c.G_kwargs.decoder_dim = opts.decoder_dim
         c.G_kwargs.noise_strength = opts.noise_strength
-        c.D_kwargs.use_patch = opts.use_patch
+        c.G_kwargs.z_from_pc = opts.z_from_pc
+        
         if opts.use_patch:
             c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'
+            c.D_kwargs.use_patch = opts.use_patch
             if opts.discriminator_condition_on_real:
                 c.D_kwargs.input_nc = 6
             else:

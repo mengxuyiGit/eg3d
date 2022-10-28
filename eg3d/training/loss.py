@@ -107,13 +107,18 @@ class StyleGAN2Loss(Loss):
 
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
+        
         if swapping_prob is not None:
             c_swapped = torch.roll(c.clone(), 1, 0)
             c_gen_conditioning = torch.where(torch.rand((c.shape[0], 1), device=c.device) < swapping_prob, c_swapped, c)
         else:
             c_gen_conditioning = torch.zeros_like(c)
 
-        ws = self.G.mapping(z, c_gen_conditioning, update_emas=update_emas)
+        if self.G.z_from_pc:
+            ws = self.G.mapping(None, c_gen_conditioning, pc, update_emas=update_emas)
+        else:
+            ws = self.G.mapping(z, c_gen_conditioning, update_emas=update_emas)
+        
         if self.style_mixing_prob > 0:
             with torch.autograd.profiler.record_function('style_mixing'):
                 cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
@@ -395,7 +400,11 @@ class StyleGAN2Loss(Loss):
                 c_gen_conditioning = torch.zeros_like(gen_c)
                 pc_gen_conditioning = gen_pc
 
-            ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            if self.G.z_from_pc:
+                ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
+            else:
+                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+
             if self.style_mixing_prob > 0:
                 with torch.autograd.profiler.record_function('style_mixing'):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
@@ -426,7 +435,10 @@ class StyleGAN2Loss(Loss):
                 c_gen_conditioning = torch.zeros_like(gen_c)
                 pc_gen_conditioning = gen_pc
 
-            ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            if self.G.z_from_pc:
+                ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
+            else:
+                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
 
             initial_coordinates = torch.rand((ws.shape[0], 2000, 3), device=ws.device) * 2 - 1 # Front
 
@@ -451,8 +463,12 @@ class StyleGAN2Loss(Loss):
             else:
                 c_gen_conditioning = torch.zeros_like(gen_c)
                 pc_gen_conditioning = gen_pc
-
-            ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            
+            if self.G.z_from_pc:
+                ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
+            else:
+                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            
             if self.style_mixing_prob > 0:
                 with torch.autograd.profiler.record_function('style_mixing'):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
