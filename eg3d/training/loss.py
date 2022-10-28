@@ -311,6 +311,7 @@ class StyleGAN2Loss(Loss):
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
+                        st()
                         
                     else: 
                         img = gen_img['image']
@@ -540,6 +541,7 @@ class StyleGAN2Loss(Loss):
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
+                        st()
                         
                     else: 
                         img = gen_img['image']
@@ -577,9 +579,10 @@ class StyleGAN2Loss(Loss):
                         gi = real_img_tmp_image # this will do reg for image
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
+                        st()
                         
                     else: 
-                        img = gen_img['image']
+                        img = real_img_tmp_image
                        
                     target = True
                     patch_loss_Dreal, real_logits = self.run_patchD(img, target, return_pred=True)
@@ -600,7 +603,7 @@ class StyleGAN2Loss(Loss):
 
                 loss_Dr1 = 0
                 if phase in ['Dreg', 'Dboth']:
-                    if self.dual_discrimination and not self.discriminator_condition_on_real:
+                    if self.dual_discrimination and not self.use_patchD:
                         with torch.autograd.profiler.record_function('r1_grads'), conv2d_gradfix.no_weight_gradients():
                             r1_grads = torch.autograd.grad(outputs=[real_logits.sum()], inputs=[real_img_tmp['image'], real_img_tmp['image_raw']], create_graph=True, only_inputs=True)
                             r1_grads_image = r1_grads[0]
