@@ -308,6 +308,7 @@ def training_loop(
             all_gen_pc = [training_set.get_pointcloud(idx) for idx in gen_indices]
             all_gen_pc = torch.from_numpy(np.stack(all_gen_pc)).pin_memory().to(device)
             all_gen_pc = [phase_gen_pc.split(batch_gpu) for phase_gen_pc in all_gen_pc.split(batch_size)]
+            
 
         # Execute training phases.
         for phase, phase_gen_z, phase_gen_c, phase_gen_pc in zip(phases, all_gen_z, all_gen_c, all_gen_pc):

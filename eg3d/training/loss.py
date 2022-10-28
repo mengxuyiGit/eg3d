@@ -107,13 +107,18 @@ class StyleGAN2Loss(Loss):
 
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
+        
         if swapping_prob is not None:
             c_swapped = torch.roll(c.clone(), 1, 0)
             c_gen_conditioning = torch.where(torch.rand((c.shape[0], 1), device=c.device) < swapping_prob, c_swapped, c)
         else:
             c_gen_conditioning = torch.zeros_like(c)
 
-        ws = self.G.mapping(z, c_gen_conditioning, update_emas=update_emas)
+        if self.G.z_from_pc:
+            ws = self.G.mapping(None, c_gen_conditioning, pc, update_emas=update_emas)
+        else:
+            ws = self.G.mapping(z, c_gen_conditioning, update_emas=update_emas)
+        
         if self.style_mixing_prob > 0:
             with torch.autograd.profiler.record_function('style_mixing'):
                 cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
@@ -311,7 +316,6 @@ class StyleGAN2Loss(Loss):
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
-                        st()
                         
                     else: 
                         img = gen_img['image']
@@ -395,7 +399,11 @@ class StyleGAN2Loss(Loss):
                 c_gen_conditioning = torch.zeros_like(gen_c)
                 pc_gen_conditioning = gen_pc
 
-            ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            if self.G.z_from_pc:
+                ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
+            else:
+                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+
             if self.style_mixing_prob > 0:
                 with torch.autograd.profiler.record_function('style_mixing'):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
@@ -426,7 +434,10 @@ class StyleGAN2Loss(Loss):
                 c_gen_conditioning = torch.zeros_like(gen_c)
                 pc_gen_conditioning = gen_pc
 
-            ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            if self.G.z_from_pc:
+                ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
+            else:
+                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
 
             initial_coordinates = torch.rand((ws.shape[0], 2000, 3), device=ws.device) * 2 - 1 # Front
 
@@ -451,8 +462,12 @@ class StyleGAN2Loss(Loss):
             else:
                 c_gen_conditioning = torch.zeros_like(gen_c)
                 pc_gen_conditioning = gen_pc
-
-            ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            
+            if self.G.z_from_pc:
+                ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
+            else:
+                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+            
             if self.style_mixing_prob > 0:
                 with torch.autograd.profiler.record_function('style_mixing'):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
@@ -541,7 +556,7 @@ class StyleGAN2Loss(Loss):
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
-                        st()
+        
                         
                     else: 
                         img = gen_img['image']
@@ -579,7 +594,6 @@ class StyleGAN2Loss(Loss):
                         gi = real_img_tmp_image # this will do reg for image
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
-                        st()
                         
                     else: 
                         img = real_img_tmp_image
@@ -602,8 +616,8 @@ class StyleGAN2Loss(Loss):
                     training_stats.report('Loss/D/loss(gen+real)', loss_Dgen + loss_Dreal)
 
                 loss_Dr1 = 0
-                if phase in ['Dreg', 'Dboth']:
-                    if self.dual_discrimination and not self.use_patchD:
+                if phase in ['Dreg', 'Dboth'] and not self.use_patchD:
+                    if self.dual_discrimination:
                         with torch.autograd.profiler.record_function('r1_grads'), conv2d_gradfix.no_weight_gradients():
                             r1_grads = torch.autograd.grad(outputs=[real_logits.sum()], inputs=[real_img_tmp['image'], real_img_tmp['image_raw']], create_graph=True, only_inputs=True)
                             r1_grads_image = r1_grads[0]
