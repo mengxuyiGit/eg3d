@@ -69,6 +69,9 @@ class STNkd(nn.Module):
         self.bn5 = nn.BatchNorm1d(256)
 
         self.k = k
+        # self.iden = torch.from_numpy(np.eye(self.k).flatten().astype(np.float32)).view(1,self.k*self.k).repeat(2,1).to(self.conv3.device) # hard code to repeat batch size
+
+        
 
     def forward(self, x):
         batchsize = x.size()[0]
@@ -84,8 +87,12 @@ class STNkd(nn.Module):
 
         iden = Variable(torch.from_numpy(np.eye(self.k).flatten().astype(np.float32))).view(1,self.k*self.k).repeat(batchsize,1)
         if x.is_cuda:
-            iden = iden.cuda()
+            # iden = iden.cuda()
+            # iden = iden.to(torch.cuda.current_device())
+            iden = iden.to(x.device)
+        
         x = x + iden
+        # x = x + self.iden
         x = x.view(-1, self.k, self.k)
         return x
 

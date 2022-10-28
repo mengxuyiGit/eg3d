@@ -33,7 +33,7 @@ DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white_small.zip
 CUDA_VISIBLE_DEVICES=[1]
-GPUS=1
+GPUS=2
 BATCH_SIZE=2
 python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --gpus=${GPUS} --batch=${BATCH_SIZE} --gamma=0.3 \
