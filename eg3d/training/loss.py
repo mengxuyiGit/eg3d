@@ -103,7 +103,8 @@ class StyleGAN2Loss(Loss):
         self.drop_pixel_ratio  = drop_pixel_ratio
 
         if self.discriminator_condition_on_real:
-            assert not (self.use_l2 or self.use_l1 or self.use_chamfer or self.use_perception)
+            # assert not (self.use_l2 or self.use_l1 or self.use_chamfer or self.use_perception)
+            assert not (self.use_l2 or self.use_chamfer or self.use_perception) # allow L1
 
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
@@ -348,8 +349,9 @@ class StyleGAN2Loss(Loss):
 
                 # L1 loss on the whole gen image
                 if self.use_l1:
-                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img_tmp)
-                    l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
+                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img)
+                    # l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
+                    l1_loss = torch.mean(l1_loss) * self.l1_reg
                     loss_Gmain += l1_loss
                     print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
     
