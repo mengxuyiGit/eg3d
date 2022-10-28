@@ -316,7 +316,6 @@ class StyleGAN2Loss(Loss):
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
-                        st()
                         
                     else: 
                         img = gen_img['image']
@@ -557,7 +556,7 @@ class StyleGAN2Loss(Loss):
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
-                        st()
+        
                         
                     else: 
                         img = gen_img['image']
