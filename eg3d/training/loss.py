@@ -599,7 +599,10 @@ class StyleGAN2Loss(Loss):
                     training_stats.report('Loss/D/loss(gen+real)', loss_Dgen + loss_Dreal)
 
                 loss_Dr1 = 0
-                if phase in ['Dreg', 'Dboth']:
+                # if phase in ['Dreg', 'Dboth']:
+                if False:
+            
+                    print("should not come into this block")
                     if self.dual_discrimination and not self.discriminator_condition_on_real:
                         with torch.autograd.profiler.record_function('r1_grads'), conv2d_gradfix.no_weight_gradients():
                             r1_grads = torch.autograd.grad(outputs=[real_logits.sum()], inputs=[real_img_tmp['image'], real_img_tmp['image_raw']], create_graph=True, only_inputs=True)
