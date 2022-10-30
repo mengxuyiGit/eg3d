@@ -33,14 +33,14 @@ DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white_small.zip
 CUDA_VISIBLE_DEVICES=[1]
-GPUS=2
-BATCH_SIZE=2
+GPUS=1
+BATCH_SIZE=1
 python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --gpus=${GPUS} --batch=${BATCH_SIZE} --gamma=0.3 \
   --backbone volume --decoder_dim 8 \
   --noise_strength 1 --snap 1 \
-  --discriminator_condition_on_real False --drop_pixel_ratio 0.8 \
-  --use_patch True --z_from_pc True 
+  --discriminator_condition_on_real True --drop_pixel_ratio 0.8 \
+  --use_patch True --z_from_pc False 
 
   # --use_perception True --perception_reg 1 \
   # --use_l1 True \
