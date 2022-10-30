@@ -40,7 +40,7 @@ python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --backbone volume --decoder_dim 8 \
   --noise_strength 1 --snap 1 \
   --discriminator_condition_on_real True --drop_pixel_ratio 0.8 \
-  --use_patch True --z_from_pc False 
+  --use_patch True --z_from_pc True 
 
   # --use_perception True --perception_reg 1 \
   # --use_l1 True \

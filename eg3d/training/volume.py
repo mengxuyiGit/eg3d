@@ -27,7 +27,7 @@ from training.volumetric_rendering.ray_sampler import RaySampler
 import dnnlib
 
 from ipdb import set_trace as st
-from training.model_pointnet import PointNetfeat
+from training.model_pointnet import PointNetfeat_noBN
 
 @persistence.persistent_class
 class VolumeGenerator(torch.nn.Module):
@@ -59,7 +59,7 @@ class VolumeGenerator(torch.nn.Module):
 
         self.z_from_pc = z_from_pc
         if self.z_from_pc:
-            self.pc2z = PointNetfeat()
+            self.pc2z = PointNetfeat_noBN()
         ##########################################
         self.w_dim=w_dim
         self.img_resolution=img_resolution
