@@ -117,7 +117,7 @@ class StyleGAN2Loss(Loss):
         if self.G.z_from_pc:
             ws = self.G.mapping(None, c_gen_conditioning, pc, update_emas=update_emas)
         else:
-            ws = self.G.mapping(z, c_gen_conditioning, update_emas=update_emas)
+            ws = self.G.mapping(z, c_gen_conditioning, None, update_emas=update_emas)
         
         if self.style_mixing_prob > 0:
             with torch.autograd.profiler.record_function('style_mixing'):
@@ -402,7 +402,7 @@ class StyleGAN2Loss(Loss):
             if self.G.z_from_pc:
                 ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
             else:
-                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+                ws = self.G.mapping(gen_z, c_gen_conditioning, None, update_emas=False)
 
             if self.style_mixing_prob > 0:
                 with torch.autograd.profiler.record_function('style_mixing'):
@@ -437,7 +437,7 @@ class StyleGAN2Loss(Loss):
             if self.G.z_from_pc:
                 ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
             else:
-                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+                ws = self.G.mapping(gen_z, c_gen_conditioning, None, update_emas=False)
 
             initial_coordinates = torch.rand((ws.shape[0], 2000, 3), device=ws.device) * 2 - 1 # Front
 
@@ -466,7 +466,7 @@ class StyleGAN2Loss(Loss):
             if self.G.z_from_pc:
                 ws = self.G.mapping(None, c_gen_conditioning, gen_pc, update_emas=False)
             else:
-                ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
+                ws = self.G.mapping(gen_z, c_gen_conditioning, None, update_emas=False)
             
             if self.style_mixing_prob > 0:
                 with torch.autograd.profiler.record_function('style_mixing'):
