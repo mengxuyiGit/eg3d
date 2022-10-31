@@ -366,6 +366,7 @@ class Synthesis3DUnet_v0(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         # self.conv12 = nn.Conv3d(8, 8, 3, stride=1, padding=1, bias=True)
 
     def forward(self, x, ws):
+        st() # not implement BN version
         conv0 = self.conv0(x)
         
 

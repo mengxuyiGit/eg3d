@@ -100,6 +100,7 @@ class PointNetfeat(nn.Module):
     def __init__(self, global_feat = True, feature_transform = False):
         super(PointNetfeat, self).__init__()
         self.stn = STNkd(k=9)
+        st() # not implement BN version
         # self.stn = STN3d()
         # self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv1 = torch.nn.Conv1d(9, 64, 1)
@@ -116,7 +117,7 @@ class PointNetfeat(nn.Module):
             self.fstn = STNkd(k=64)
 
     def forward(self, x):
-        st()
+        st() # not implement BN version
         B,C,N = x.shape
         n_pts = x.size()[2]
         trans = self.stn(x)
@@ -167,6 +168,7 @@ class STNkd_noBN(nn.Module):
         x = F.relu(self.conv3(x))
         x = torch.max(x, 2, keepdim=True)[0]
         x = x.view(-1, 1024)
+        # print("stnkd without BN")# not implement BN version
 
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
