@@ -41,6 +41,8 @@ class ConvInReLU3D(nn.Module):
                               kernel_size, stride=stride, padding=pad, bias=False)
         self.inst_norm = nn.InstanceNorm3d(out_channels) # without learnable parameters  
         self.act = nn.LeakyReLU()
+        ## encoder: open learnable parameter
+        ## decoder: 
 
     def forward(self, x):
         return self.act(self.inst_norm(self.conv(x)))
@@ -731,7 +733,15 @@ class Synthesis3DUnet_AdaIN(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         w_idx=0
 
         # 1. x is the sum of instance-normed feature volumes
-        x = conv61 + self.conv27(conv62) 
+        x = conv61 + self.conv27(conv62)
+        ## encoder still BN
+        ## decoder
+        # cat = cat([conv61,conv62])
+        # conv(cat)
+        # + noise
+        # leaky_relu(styleGAN act)
+        # IN (non-learnable)
+        # + style(can still use BN) mean/std + conv61(if not cat with conv62)
         
         # 2. apply style
         style = self.affine27(ws.narrow(1, w_idx, 1)).permute(0,2,1) # style.shape: B,C,2
