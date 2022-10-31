@@ -89,6 +89,8 @@ class VolumeGenerator(torch.nn.Module):
         
         # instead of randomly sample z, condition it on input pc
         if self.z_from_pc:
+            print("z from pc")
+            st()
             z,_,_ = self.pc2z(pc.permute(0,2,1))
 
         if self.rendering_kwargs['c_gen_conditioning_zero']: # True
@@ -155,7 +157,7 @@ class VolumeGenerator(torch.nn.Module):
 
         # Run superresolution to get final image
         rgb_image = feature_image[:, :3]
-        # st()
+        st()
         sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
 
         return {'image': sr_image, 'image_raw': rgb_image, 'image_depth': depth_image}
