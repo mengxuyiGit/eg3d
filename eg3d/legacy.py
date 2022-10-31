@@ -119,8 +119,10 @@ def convert_tf_generator(tf_G):
         return val if val is not None else none
 
     # Convert kwargs.
-    from training import networks_stylegan2
-    network_class = networks_stylegan2.Generator
+    # from training import networks_stylegan2
+    # network_class = networks_stylegan2.Generator
+    from training import networks_stylegan2_syn_unet
+    network_class = networks_stylegan2_syn_unet.Generator
     kwargs = dnnlib.EasyDict(
         z_dim               = kwarg('latent_size',          512),
         c_dim               = kwarg('label_size',           0),

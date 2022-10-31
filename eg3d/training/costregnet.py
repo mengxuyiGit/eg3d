@@ -368,7 +368,7 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
             x = x.add_(noise.to(x.dtype))
         style = self.affine27(ws.narrow(1, w_idx, 1)).permute(0,2,1)
         w_idx += 1
-        # st()
+
         assert x.shape[:2] == style.shape[:2]
         B, C = x.shape[:2]
         style = style.reshape(B,C,1,1,1) # extend to 3D 

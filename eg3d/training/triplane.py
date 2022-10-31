@@ -52,7 +52,7 @@ class TriPlaneGenerator(torch.nn.Module):
 
     def synthesis(self, ws, c, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
         cam2world_matrix = c[:, :16].view(-1, 4, 4)
-        intrinsics = c[:, 16:25].view(-1, 3, 3)
+        intrinsics = c[:, 16:25].view(-1, 3, 3)     
 
         if neural_rendering_resolution is None:
             neural_rendering_resolution = self.neural_rendering_resolution

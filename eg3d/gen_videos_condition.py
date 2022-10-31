@@ -125,8 +125,9 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     ws = G.mapping(z=zs, c=c, pc=PC_FILES, truncation_psi=psi, truncation_cutoff=truncation_cutoff)
     
     if cfg == 'ABO':
-
+        # st()
         _ = G.synthesis(ws[:1], c[:1], pc=PC_FILES[:1])
+        tmp_ws, tmpc, tmppc = ws[:1], c[:1], PC_FILES[:1]
     else:
         # st()
         _ = G.synthesis(ws[:1], c[:1]) # warm up
@@ -151,7 +152,6 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     if gen_shapes:
         outdir = 'interpolation_{}_{}/'.format(all_seeds[0], all_seeds[1])
         os.makedirs(outdir, exist_ok=True)
-
 
     
 
@@ -200,9 +200,20 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
                     img = G.synthesis(ws=w_c, c=c_forward, pc=PC_FILES[:1], noise_mode='const')[image_mode][0]
                 elif entangle == 'camera':
                     if cfg == 'ABO':
-                        pass
+                        w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[:1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
+                        # print("condition w on pc")
+                        # print(w_pc.shape)
+                    
+                    img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[0:1].to(tmppc), noise_mode='const')[image_mode][0]
+                    # print("xi", xi)
                     # st()
-                    img = G.synthesis(ws=w.unsqueeze(0), c=c[0:1], pc=PC_FILES[0:1], noise_mode='const')[image_mode][0]
+                    # print(xi, yi, tmp_ws.shape, tmpc.shape, tmppc.shape)
+                    # print(xi, yi, w.unsqueeze(0).shape, c[0:1].shape, PC_FILES[0:1].shape)
+                    # print(xi, yi, tmp_ws.dtype, tmpc.dtype, tmppc.dtype)
+                    # print(xi, yi, w.unsqueeze(0).dtype, c[0:1].dtype, PC_FILES[0:1].dtype)
+                    # img = G.synthesis(ws=w.unsqueeze(0), c=c[0:1], pc=PC_FILES[0:1])
+                    # img = G.synthesis(ws=tmp_ws, c=tmpc, pc=tmppc)
+                    # exit()
                 elif entangle == 'both':
                     w_c = G.mapping(z=zs[0:1], c=c[0:1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
                     img = G.synthesis(ws=w_c, c=c[0:1], noise_mode='const')[image_mode][0]

@@ -1,7 +1,7 @@
 CUDA_LAUNCH_BLOCKING=1
 
 python gen_videos_condition.py --outdir=out --trunc=0.7 --seeds=0-3 --grid=2x2 \
-    --cfg ABO --pointcloud_files "['/home/xuyi/Data/renderer/output_abo/B07QJJKZL2/sample/pc.csv']" \
+    --cfg ABO --pointcloud_files "['/home/xuyi/Data/renderer/output_abo/B07JPGPBL2/sample/pc.csv']" \
     --pose_file /home/xuyi/Data/renderer/output_abo/B07DBJX741/render/transforms.json \
     --network=/home/xuyi/Repo/eg3d/eg3d/pretrained_models/conditional-patchD-z-from-pc-abo-128-completed-white-gpus4-batch16-003440.pkl
 
