@@ -159,7 +159,6 @@ class VolumeGenerator(torch.nn.Module):
 
         # Run superresolution to get final image
         rgb_image = feature_image[:, :3]
-        # st()
         sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
 
         return {'image': sr_image, 'image_raw': rgb_image, 'image_depth': depth_image}
