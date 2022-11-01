@@ -32,6 +32,7 @@ from ipdb import set_trace as st
 import zipfile
 import pandas as pd
 import point_cloud_utils as pcu
+import glob
 
 #----------------------------------------------------------------------------
 import ast
@@ -122,7 +123,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     c = c.repeat(len(zs), 1)
 
     
-    ws = G.mapping(z=zs, c=c, pc=PC_FILES, truncation_psi=psi, truncation_cutoff=truncation_cutoff)
+    ws = G.mapping(z=zs, c=c, pc=PC_FILES[:4], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
     
     if cfg == 'ABO':
         # st()
@@ -163,6 +164,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
             for xi in range(grid_w):
                 pitch_range = 0.25
                 yaw_range = 0.35
+                pc_idx = yi*2+xi
                 try:
                     c_idx = frame_idx%len(PREDEFINED_POSES)
                     # print(c_idx)
@@ -200,11 +202,14 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
                     img = G.synthesis(ws=w_c, c=c_forward, pc=PC_FILES[:1], noise_mode='const')[image_mode][0]
                 elif entangle == 'camera':
                     if cfg == 'ABO':
-                        w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[:1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
+                        # w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[:1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
+                        w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
                         # print("condition w on pc")
                         # print(w_pc.shape)
+                        # print(pc_idx)
                     
-                    img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[0:1].to(tmppc), noise_mode='const')[image_mode][0]
+                    # img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[0:1].to(tmppc), noise_mode='const')[image_mode][0]
+                    img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1].to(tmppc), noise_mode='const')[image_mode][0]
                     # print("xi", xi)
                     # st()
                     # print(xi, yi, tmp_ws.shape, tmpc.shape, tmppc.shape)
@@ -437,9 +442,16 @@ def generate_images(
 
     if len(pointcloud_files) !=0:
         # PC_FILES = pointcloud_files
+        try:
+            pointcloud_files = glob.glob(pointcloud_files[0])
+            print(pointcloud_files)
+        except:
+            pass
         
         PC_FILES = torch.tensor(np.asarray([_downsample_points(_load_raw_pointcloud_by_name(i)) for i in pointcloud_files]), device=device)
-        PC_FILES = PC_FILES.repeat(4,1,1)
+        if PC_FILES.shape[0]<4:
+            PC_FILES = PC_FILES.repeat(4,1,1)
+
     else:
         print("use predefined pointcloud")
         _all_fnames = set(_get_zipfile().namelist())
