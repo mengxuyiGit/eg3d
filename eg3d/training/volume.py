@@ -89,8 +89,7 @@ class VolumeGenerator(torch.nn.Module):
         
         # instead of randomly sample z, condition it on input pc
         if self.z_from_pc:
-            print("z from pc")
-            # st()
+            # print("z from pc")
             z,_,_ = self.pc2z(pc.permute(0,2,1))
 
         if self.rendering_kwargs['c_gen_conditioning_zero']: # True
@@ -183,7 +182,7 @@ class VolumeGenerator(torch.nn.Module):
         return self.renderer.run_model(planes, self.decoder, coordinates, directions, self.rendering_kwargs)
 
     def forward(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
-        if pc.shape[-2:] != (1024,9):
+        if pc.shape[-1] != 9 and pc.shape[-2]%1024 != 0:
             st()
 
         # self.log_idx= self.log_idx +1
