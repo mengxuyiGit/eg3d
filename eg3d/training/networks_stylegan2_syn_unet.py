@@ -70,7 +70,7 @@ def modulated_conv2d(
     # Calculate per-sample weights and demodulation coefficients.
     w = None
     dcoefs = None
-    st()
+
     if demodulate or fused_modconv:
         w = weight.unsqueeze(0) # [NOIkk]
         w = w * styles.reshape(batch_size, 1, -1, 1, 1) # [NOIkk]
@@ -120,13 +120,13 @@ class FullyConnectedLayer(torch.nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.activation = activation
+       
         self.weight = torch.nn.Parameter(torch.randn([out_features, in_features]) / lr_multiplier)
         self.bias = torch.nn.Parameter(torch.full([out_features], np.float32(bias_init))) if bias else None
         self.weight_gain = lr_multiplier / np.sqrt(in_features)
         self.bias_gain = lr_multiplier
 
     def forward(self, x):
-
         w = self.weight.to(x.dtype) * self.weight_gain
         b = self.bias
         if b is not None:
@@ -134,7 +134,6 @@ class FullyConnectedLayer(torch.nn.Module):
             if self.bias_gain != 1:
                 b = b * self.bias_gain
         if self.activation == 'linear' and b is not None:
-            
             x = torch.addmm(b.unsqueeze(0), x, w.t())
         else:
             x = x.matmul(w.t())
@@ -744,22 +743,6 @@ class PointNet(torch.nn.Module):
     # def __init__(self, cfg):
     def __init__(self, fea_dim, out_pt_fea_dim):
         super().__init__()
-        # fea_dim = cfg.DATA_CONFIG.DATALOADER.DATA_DIM
-        # out_pt_fea_dim = cfg.MODEL.VFE.OUT_CHANNEL
-
-        # self.PPmodel = nn.Sequential(
-        #     # nn.BatchNorm1d(fea_dim),
-        #     nn.Linear(fea_dim, 64),
-        #     nn.SyncBatchNorm(64),
-        #     nn.ReLU(),
-        #     nn.Linear(64, 128),
-        #     nn.SyncBatchNorm(128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, 256),
-        #     nn.SyncBatchNorm(256),
-        #     nn.ReLU(),
-        #     nn.Linear(256, out_pt_fea_dim)
-        # )
         
         self.PPmodel = nn.Sequential(
             # nn.BatchNorm1d(fea_dim),
