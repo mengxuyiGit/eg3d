@@ -89,6 +89,8 @@ class VolumeGenerator(torch.nn.Module):
         
         # instead of randomly sample z, condition it on input pc
         if self.z_from_pc:
+            print("z from pc")
+            # st()
             z,_,_ = self.pc2z(pc.permute(0,2,1))
 
         if self.rendering_kwargs['c_gen_conditioning_zero']: # True
@@ -100,8 +102,10 @@ class VolumeGenerator(torch.nn.Module):
         return self.backbone.mapping(z, c * self.rendering_kwargs.get('c_scale', 0), truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
 
     def synthesis(self, ws, c, pc=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
+       
         cam2world_matrix = c[:, :16].view(-1, 4, 4)
         intrinsics = c[:, 16:25].view(-1, 3, 3)
+        
 
         if neural_rendering_resolution is None:
             neural_rendering_resolution = self.neural_rendering_resolution
@@ -116,13 +120,13 @@ class VolumeGenerator(torch.nn.Module):
         N, M, _ = ray_origins.shape
         if use_cached_backbone and self._last_planes is not None:
             planes = self._last_planes
-            st() # assert not coming into this block
+            # st() # assert not coming into this block
         else:
             planes = self.backbone.synthesis(ws, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
             # this will call: SynthesisNetwork.forward()
 
         if cache_backbone:
-            st() # assert not coming into this block
+            # st() # assert not coming into this block
             self._last_planes = planes
 
         # Reshape output into three 32-channel planes
