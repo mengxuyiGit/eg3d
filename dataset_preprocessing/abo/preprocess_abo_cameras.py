@@ -126,9 +126,10 @@ if __name__ == '__main__':
             
         image_path = os.path.join(args.source, filename)
         pc_rel_path = cameras[filename]['pc_csv']
+        
         dataset["labels"].append([filename, label, pc_rel_path]) 
         # also append pointcloud filename, but need to check with the dataset class too
-
+    
     # print(dataset)
     # check cameras/dataset
 

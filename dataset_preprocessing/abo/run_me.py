@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         
-        extracted_data_path = '/home/xuyi/Data/renderer/output_debug'
+        extracted_data_path = '/home/xuyi/Data/renderer/output_cutter'
 
         print("Converting camera parameters...")
         cmd = f"python {os.path.join(dir_path, 'preprocess_abo_cameras.py')} --source={extracted_data_path} --file_prefix={target_dataset_npoints_res}"

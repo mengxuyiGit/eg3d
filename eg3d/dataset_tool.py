@@ -93,13 +93,15 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             if labels is not None:
                 try:
                     # pc_rel_paths = { x[0]: x[2] for x in labels }
-                    pc_rel_paths = { os.path.relpath(x[0], '../output_cutter'): x[2] for x in labels }
+                    # pc_rel_paths = { os.path.relpath(x[0], '../output_cutter'): x[2] for x in labels }
+                    pc_rel_paths = { os.path.relpath(x[0], '../abo'): x[2] for x in labels }
                     # print(pc_rel_paths)
                 except:
                     print("No pointcloud input in dataset")
                     pc_rel_paths = {}
                 # labels = { x[0]: x[1] for x in labels }
-                labels = { os.path.relpath(x[0], '../output_cutter'): x[1] for x in labels }
+                # labels = { os.path.relpath(x[0], '../output_cutter'): x[1] for x in labels }
+                labels = { os.path.relpath(x[0], '../abo'): x[1] for x in labels }
                 
             else:
                 labels = {}
@@ -118,7 +120,6 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             if READ_POINTCLOUD:
       
                 pc_rel = pc_rel_paths.get(arch_fname[:-4])
-    
                 # print(arch_fname[:-4])
                 if pc_rel != None:
                     pc_fname = os.path.join(source_dir, pc_rel)
@@ -139,7 +140,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
                         # particle_pos = particle_pos[poisson_idx]
                         pc_array = pc_array[poisson_idx]    
                 else:
-                    print("continue")
+                    # print("continue")
                     continue
             else:
                 pc_array=None
@@ -492,6 +493,7 @@ def convert_dataset(
     for idx, image in tqdm(enumerate(input_iter), total=num_files):
        
         idx_str = f'{idx:08d}'
+        print(idx_str)
         archive_fname = f'{idx_str[:5]}/img{idx_str}.png'
 
         # Apply crop and resize.
@@ -552,7 +554,7 @@ def convert_dataset(
         for row in pc_array:
             writer.writerow(row)
         save_bytes(os.path.join(archive_root_dir, archive_fname_pc), string_buffer.getvalue())
-        # print(archive_fname_pc)
+        print(archive_fname_pc)
 
     metadata = {
         'labels': labels if all(x is not None for x in labels) else None
