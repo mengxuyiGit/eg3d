@@ -322,9 +322,9 @@ class StyleGAN2Loss(Loss):
                         img = gen_img['image']
                        
                     target = True
-                    patch_loss = self.run_patchD(img, target)
+                    patch_loss = self.run_patchD(img, target)*self.patchD_reg
                     loss_Gmain = patch_loss
-                    # print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
+                    print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
                     training_stats.report('Loss/G/patch_loss_fake',patch_loss)
                     training_stats.report('Loss/G/loss', loss_Gmain)
                 
@@ -564,7 +564,7 @@ class StyleGAN2Loss(Loss):
                         img = gen_img['image']
                        
                     target = False
-                    patch_loss_Dgen = self.run_patchD(img, target)
+                    patch_loss_Dgen = self.run_patchD(img, target)*self.patchD_reg
                     loss_Dgen = patch_loss_Dgen
                     training_stats.report('Loss/D/patch_loss_fake', patch_loss_Dgen)
                     # print(f"---------loss_patch Dfake\t\t(x{self.patchD_reg}): {(patch_loss_Dgen).sum().item()}-------------")
@@ -602,8 +602,8 @@ class StyleGAN2Loss(Loss):
                        
                     target = True
                     patch_loss_Dreal, real_logits = self.run_patchD(img, target, return_pred=True)
-                    loss_Dreal += patch_loss_Dreal
-                    # print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal).sum().item()}-------------")
+                    loss_Dreal += patch_loss_Dreal*self.patchD_reg
+                    # print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal*self.patchD_reg).sum().item()}-------------")
                     training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
                 
                 else:

@@ -210,7 +210,7 @@ def parse_comma_separated_list(s):
 
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
-@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
+@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.0), default=1, required=False, show_default=True)
 
 @click.option('--discriminator_condition_on_real',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--drop_pixel_ratio',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.8, required=False, show_default=True)
