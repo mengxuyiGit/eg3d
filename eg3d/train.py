@@ -33,7 +33,7 @@ import numpy as np
 #----------------------------------------------------------------------------
 
 def subprocess_fn(rank, c, temp_dir):
-    # dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
+    dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
 
     # Init torch.distributed.
     if c.num_gpus > 1:
@@ -58,7 +58,7 @@ def subprocess_fn(rank, c, temp_dir):
 #----------------------------------------------------------------------------
 
 def launch_training(c, desc, outdir, dry_run):
-    # dnnlib.util.Logger(should_flush=True)
+    dnnlib.util.Logger(should_flush=True)
 
     # Pick output directory.
     prev_run_dirs = []
@@ -210,7 +210,7 @@ def parse_comma_separated_list(s):
 
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
-@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
+@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.0), default=1, required=False, show_default=True)
 
 @click.option('--discriminator_condition_on_real',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--drop_pixel_ratio',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.8, required=False, show_default=True)
