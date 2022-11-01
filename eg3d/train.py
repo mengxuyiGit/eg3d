@@ -209,7 +209,7 @@ def parse_comma_separated_list(s):
 @click.option('--z_from_pc', help='Latent z is not randomly sampled, but condition on input point cloud.', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--synthesis_no_latent', help='Not using latent to generate.', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--separate_oc_volumes', help='get3d two branches.', metavar='BOOL',  type=bool, required=False, default=False)
-
+@click.option('--rgb_use_occupancy', help='in OSG_decoder_separate, render rgb also uses occupancy information.', metavar='BOOL',  type=bool, required=False, default=False)
 
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
@@ -363,6 +363,7 @@ def main(**kwargs):
         'decoder_lr_mul': opts.decoder_lr_mul, # learning rate multiplier for decoder
         'sr_antialias': True,
         'use_ray_directions': opts.use_ray_directions,
+        'rgb_use_occupancy':opts.rgb_use_occupancy,
     }
 
     if opts.cfg == 'ffhq':

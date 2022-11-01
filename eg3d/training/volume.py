@@ -82,6 +82,7 @@ class VolumeGenerator(torch.nn.Module):
                 {'decoder_lr_mul': rendering_kwargs.get('decoder_lr_mul', 1),
                 'decoder_output_dim': 32,
                 'use_ray_directions': rendering_kwargs.get('use_ray_directions', False),
+                'rgb_use_occupancy': rendering_kwargs.get("rgb_use_occupancy", False),
                 }) # input_dim=8 for volume
         else:
             self.decoder = OSGDecoder(decoder_dim,
@@ -267,9 +268,13 @@ class OSGDecoder_separate(torch.nn.Module):
     
 
         self.use_ray_directions = options['use_ray_directions']
+        self.rgb_use_occupancy = options['rgb_use_occupancy']
 
         self.occ_n_features = n_features//2
-        self.color_n_features = n_features//2 # use also occ features
+        if self.rgb_use_occupancy:
+            self.color_n_features = n_features
+        else:
+            self.color_n_features = n_features//2 # use also occ features
         if self.use_ray_directions:
             self.color_n_features += 3
             
@@ -294,8 +299,11 @@ class OSGDecoder_separate(torch.nn.Module):
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
        
         sampled_features_occ = sampled_features[...,:self.occ_n_features]
-        sampled_features_color = sampled_features[...,self.occ_n_features:]
-
+        if self.rgb_use_occupancy:
+            sampled_features_color = sampled_features
+        else:
+            sampled_features_color = sampled_features[...,self.occ_n_features:]
+        
         if self.use_ray_directions:
             sampled_features_color = torch.cat([sampled_features_color, ray_directions], -1)
 
@@ -320,6 +328,7 @@ class OSGDecoder_separate(torch.nn.Module):
         ## color
 
         sampled_features_color = sampled_features_color.view(N*M, self.color_n_features)
+        print(sampled_features_color.shape)
         rgb = self.net_color(sampled_features_color)
         rgb = rgb.view(N, M, -1)
         rgb = torch.sigmoid(rgb)*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
