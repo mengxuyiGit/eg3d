@@ -90,7 +90,7 @@ class VolumeGenerator(torch.nn.Module):
         # instead of randomly sample z, condition it on input pc
         if self.z_from_pc:
             print("z from pc")
-            st()
+            # st()
             z,_,_ = self.pc2z(pc.permute(0,2,1))
 
         if self.rendering_kwargs['c_gen_conditioning_zero']: # True

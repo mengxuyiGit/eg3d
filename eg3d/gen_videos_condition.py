@@ -28,6 +28,7 @@ import legacy
 
 from camera_utils import LookAtPoseSampler
 from torch_utils import misc
+from training.volume import VolumeGenerator
 from ipdb import set_trace as st
 import zipfile
 import pandas as pd
@@ -140,7 +141,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
         row = []
         for xi in range(grid_w):
             x = np.arange(-num_keyframes * wraps, num_keyframes * (wraps + 1))
-            y = np.tile(ws[yi][xi].cpu().numpy(), [wraps * 2 + 1, 1, 1])
+            y = np.tile(ws[yi][xi].detach().cpu().numpy(), [wraps * 2 + 1, 1, 1])
             interp = scipy.interpolate.interp1d(x, y, kind=kind, axis=0)
             row.append(interp)
         grid.append(row)
@@ -311,6 +312,19 @@ def parse_tuple(s: Union[str, Tuple[int,int]]) -> Tuple[int, int]:
         return (int(m.group(1)), int(m.group(2)))
     raise ValueError(f'cannot parse tuple {s}')
 
+def named_params_and_buffers(module):
+    assert isinstance(module, torch.nn.Module)
+    return list(module.named_parameters()) + list(module.named_buffers())
+
+def copy_params_and_buffers(src_module, dst_module, device, require_all=False):
+    assert isinstance(src_module, torch.nn.Module)
+    assert isinstance(dst_module, torch.nn.Module)
+    src_tensors = dict(named_params_and_buffers(src_module))
+    for name, tensor in named_params_and_buffers(dst_module):
+        assert (name in src_tensors) or (not require_all)
+        if name in src_tensors:
+            tensor.copy_(src_tensors[name].detach()).requires_grad_(tensor.requires_grad)
+            tensor.to(device)
 #----------------------------------------------------------------------------
 
 @click.command()
@@ -383,7 +397,12 @@ def generate_images(
     print('Loading networks from "%s"...' % network_pkl)
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device) # type: ignore
+        G = legacy.load_network_pkl(f)['G_ema'].to(device)# type: ignore
+        init_kwargs = G.init_kwargs
+        t = VolumeGenerator(**init_kwargs).eval().to(device)
+        with torch.no_grad():
+            copy_params_and_buffers(G, t, device, require_all=True)
+        G = t
 
 
     G.rendering_kwargs['depth_resolution'] = int(G.rendering_kwargs['depth_resolution'] * sampling_multiplier)
