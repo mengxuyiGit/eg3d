@@ -31,6 +31,7 @@ DEBUG=True
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str)
+    parser.add_argument("--file_prefix", type=str)
     parser.add_argument("--max_images", type=int, default=None)
     args = parser.parse_args()
 
@@ -47,12 +48,18 @@ if __name__ == '__main__':
 
     #### this is using predefined list, to avoid folders that the datageneration is not complete
     all_data = []
-    resolution = 512 
+    # resolution = 128
+    # num_points = 2048
+
+    file_prefix = args.file_prefix
     for split in ['train', 'val']:
-        with open(os.path.join(dataset_path, 'meta', f'abo_{resolution}_{split}.txt')) as f:
+        
+        with open(os.path.join(dataset_path, 'meta', f'{file_prefix}_{split}.txt')) as f:
             scans = [line.rstrip() for line in f.readlines()]
             all_data += scans
+        
     print(len(all_data), all_data)
+
     for scene_folder_path_rel in all_data:
         scene_folder_path = os.path.join(dataset_path, scene_folder_path_rel)
         # st() # the sibling folder with rgb should be mesh>: no, only intrinsics and pose
@@ -80,7 +87,7 @@ if __name__ == '__main__':
                     [0.00000000e+00, focal / h, (h / 2)/h],
                     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
                 ).tolist()
-        st()
+    
 
         # continue
         # for rgb_path in list_recursive(os.path.join(scene_folder_path, 'render')):
@@ -119,9 +126,10 @@ if __name__ == '__main__':
             
         image_path = os.path.join(args.source, filename)
         pc_rel_path = cameras[filename]['pc_csv']
+        
         dataset["labels"].append([filename, label, pc_rel_path]) 
         # also append pointcloud filename, but need to check with the dataset class too
-
+    
     # print(dataset)
     # check cameras/dataset
 

@@ -354,8 +354,8 @@ class StyleGAN2Loss(Loss):
 
                 # L1 loss on the whole gen image
                 if self.use_l1:
-                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img_tmp)
-                    l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
+                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img)
+                    l1_loss = torch.mean(l1_loss) * self.l1_reg
                     loss_Gmain += l1_loss
                     print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
     

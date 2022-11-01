@@ -206,7 +206,7 @@ class VolumeGenerator(torch.nn.Module):
         return self.renderer.run_model(planes, self.decoder, coordinates, directions, self.rendering_kwargs)
 
     def forward(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
-        if pc.shape[-2:] != (1024,9):
+        if pc.shape[-1] != 9 and pc.shape[-2]%1024 != 0:
             st()
 
         # self.log_idx= self.log_idx +1
