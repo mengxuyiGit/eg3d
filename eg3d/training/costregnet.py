@@ -455,7 +455,7 @@ class Synthesis3DUnet_v0(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         
         return x
 
-class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
+class Synthesis3DUnet_AdaIN(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
     def __init__(self, 
             in_channels, 
             out_dim=8, 
@@ -627,8 +627,8 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         
         return x
 
-
-class Synthesis3DUnet_AdaIN(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
+# @_jiayuan version
+class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
     def __init__(self, 
             in_channels, 
             out_dim=8, 
