@@ -126,7 +126,7 @@ class VolumeGenerator(torch.nn.Module):
         else:
         # this will call: SynthesisNetwork.forward()
             if self.synthesis_no_latent:
-                print("synthesis_no_latent")
+                # print("synthesis_no_latent")
                 planes = self.backbone.synthesis(None, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
             else:
                 planes = self.backbone.synthesis(ws, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)

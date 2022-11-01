@@ -254,7 +254,7 @@ class PcWsUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         return res_feature
 
 # to imitate GET3D, remove latent for now
-class Synthesis3DUnet_with_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
+class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
     def __init__(self, 
             in_channels, 
             out_dim=8, 
@@ -264,7 +264,7 @@ class Synthesis3DUnet_with_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
             affine_act='relu', #### ???? FIXME: is this a good activation 
             norm_act=InPlaceABN):
 
-        super(Synthesis3DUnet_with_latent, self).__init__()
+        super(Synthesis3DUnet, self).__init__()
 
         self.use_noise = use_noise
         # noise_strength = 0.5
@@ -431,17 +431,17 @@ class Synthesis3DUnet_with_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
 
 ### no latent, keep noise
-class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
+class Synthesis3DUnet_lit_without_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
     def __init__(self, 
             in_channels, 
-            out_dim=8, 
+            out_dim=4, 
             use_noise=False,
             noise_strength = 0.5,
             ws_channel=512,
             affine_act='relu', #### ???? FIXME: is this a good activation 
             norm_act=InPlaceABN):
 
-        super(Synthesis3DUnet, self).__init__()
+        super(Synthesis3DUnet_lit_without_latent, self).__init__()
 
         self.use_noise = use_noise
         # noise_strength = 0.5
@@ -449,73 +449,46 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         self.conv0 = ConvBnReLU3D(in_channels, out_dim, norm_act=norm_act)
 
-        self.conv1 = ConvBnReLU3D(out_dim, 16, stride=2, norm_act=norm_act)
-        self.conv2 = ConvBnReLU3D(16, 16, norm_act=norm_act)
+        self.conv1 = ConvBnReLU3D(out_dim, 8, stride=2, norm_act=norm_act)
+        self.conv2 = ConvBnReLU3D(8, 8, norm_act=norm_act)
 
-        self.conv3 = ConvBnReLU3D(16, 32, stride=2, norm_act=norm_act)
-        self.conv4 = ConvBnReLU3D(32, 32, norm_act=norm_act)
+        self.conv3 = ConvBnReLU3D(8, 16, stride=2, norm_act=norm_act)
+        self.conv4 = ConvBnReLU3D(16, 16, norm_act=norm_act)
 
-        self.conv5 = ConvBnReLU3D(32, 64, stride=2, norm_act=norm_act)
-        self.conv6 = ConvBnReLU3D(64, 64, norm_act=norm_act)
+        self.conv5 = ConvBnReLU3D(16, 32, stride=2, norm_act=norm_act)
+        self.conv6 = ConvBnReLU3D(32, 32, norm_act=norm_act)
 
-        self.conv51 = ConvBnReLU3D(64, 64, stride=2, norm_act=norm_act)
-        self.conv61 = ConvBnReLU3D(64, 64, norm_act=norm_act)
+        self.conv51 = ConvBnReLU3D(32, 32, stride=2, norm_act=norm_act)
+        self.conv61 = ConvBnReLU3D(32, 32, norm_act=norm_act)
 
-        self.conv52 = ConvBnReLU3D(64, 64, stride=2, norm_act=norm_act)
-        self.conv62 = ConvBnReLU3D(64, 64, norm_act=norm_act)
+        self.conv52 = ConvBnReLU3D(32, 32, stride=2, norm_act=norm_act)
+        self.conv62 = ConvBnReLU3D(32, 32, norm_act=norm_act)
 
         self.conv27 = nn.Sequential(
-            nn.ConvTranspose3d(64, 64, 3, padding=1, output_padding=1,
-                               stride=2, bias=False),
-            norm_act(64))
-        # self.affine27 = nn.Sequential(
-        #                 nn.Linear(ws_channel, 64),
-        #                 nn.ReLU()
-        #             )
-        
-        
-        self.conv17 = nn.Sequential(
-            nn.ConvTranspose3d(64, 64, 3, padding=1, output_padding=1,
-                               stride=2, bias=False),
-            norm_act(64))
-        # self.affine17 = nn.Sequential(
-        #                 nn.Linear(ws_channel, 64),
-        #                 nn.ReLU()
-        #             )
-
-        self.conv7 = nn.Sequential(
-            nn.ConvTranspose3d(64, 32, 3, padding=1, output_padding=1,
+            nn.ConvTranspose3d(32, 32, 3, padding=1, output_padding=1,
                                stride=2, bias=False),
             norm_act(32))
-        # self.affine7 = nn.Sequential(
-        #                 nn.Linear(ws_channel, 32),
-        #                 nn.ReLU()
-        #             )
+        
+        self.conv17 = nn.Sequential(
+            nn.ConvTranspose3d(32, 32, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(32))
+      
 
-        self.conv9 = nn.Sequential(
+        self.conv7 = nn.Sequential(
             nn.ConvTranspose3d(32, 16, 3, padding=1, output_padding=1,
                                stride=2, bias=False),
             norm_act(16))
-        # self.affine9 = nn.Sequential(
-        #                 nn.Linear(ws_channel, 16),
-        #                 nn.ReLU()
-        #             )
-
-        # self.conv11 = nn.Sequential(
-        #     nn.ConvTranspose3d(16, 8, 3, padding=1, output_padding=1,
-        #                        stride=2, bias=False),
-        #     norm_act(8))
+      
+        self.conv9 = nn.Sequential(
+            nn.ConvTranspose3d(16, 8, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(8))
+      
         self.conv11 = nn.Sequential(
-            nn.ConvTranspose3d(16, out_dim, 3, padding=1, output_padding=1,
+            nn.ConvTranspose3d(8, out_dim, 3, padding=1, output_padding=1,
                                stride=2, bias=False),
             norm_act(out_dim))
-        # self.affine11 = nn.Sequential(
-        #                 nn.Linear(ws_channel, out_dim),
-        #                 nn.ReLU()
-        #             )
-        
-
-        # self.conv12 = nn.Conv3d(8, 8, 3, stride=1, padding=1, bias=True)
 
     def forward(self, x, ws):
         assert ws==None
@@ -527,13 +500,13 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         conv61 = self.conv61(self.conv51(conv6))
         conv62 = self.conv62(self.conv52(conv61))
 
-        print("no latent 3dunet", conv62.shape) # 256^3 -> 8^3; 128^3 -> 4^3
+        # print("no latent 3dunet", conv62.shape) # 256^3 -> 8^3; 128^3 -> 4^3
 
         ### below is upconv process: add noises, no latent
     
         x = conv61 + self.conv27(conv62)
         if self.use_noise:
-            print("adding noises")
+            # print("adding noises")
             noise = torch.rand(x.shape, device=x.device, dtype=torch.float32)
             noise = noise*self.noise_strength
             
