@@ -43,6 +43,7 @@ class VolumeGenerator(torch.nn.Module):
         decoder_dim,
         noise_strength,      
         z_from_pc,
+        synthesis_no_latent,
         ##########################################
         sr_num_fp16_res     = 0,
         mapping_kwargs      = {},   # Arguments for MappingNetwork.
@@ -60,6 +61,8 @@ class VolumeGenerator(torch.nn.Module):
         self.z_from_pc = z_from_pc
         if self.z_from_pc:
             self.pc2z = PointNetfeat()
+        
+        self.synthesis_no_latent = synthesis_no_latent
         ##########################################
         self.w_dim=w_dim
         self.img_resolution=img_resolution
@@ -89,8 +92,7 @@ class VolumeGenerator(torch.nn.Module):
         
         # instead of randomly sample z, condition it on input pc
         if self.z_from_pc:
-            print("z from pc")
-            st()
+            # print("z from pc")
             z,_,_ = self.pc2z(pc.permute(0,2,1))
 
         if self.rendering_kwargs['c_gen_conditioning_zero']: # True
@@ -122,8 +124,13 @@ class VolumeGenerator(torch.nn.Module):
             planes = self._last_planes
             # st() # assert not coming into this block
         else:
-            planes = self.backbone.synthesis(ws, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
-            # this will call: SynthesisNetwork.forward()
+        # this will call: SynthesisNetwork.forward()
+            if self.synthesis_no_latent:
+                print("synthesis_no_latent")
+                planes = self.backbone.synthesis(None, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
+            else:
+                planes = self.backbone.synthesis(ws, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
+                
 
         if cache_backbone:
             # st() # assert not coming into this block
@@ -166,14 +173,22 @@ class VolumeGenerator(torch.nn.Module):
     
     def sample(self, coordinates, directions, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False, **synthesis_kwargs):
         # Compute RGB features, density for arbitrary 3D coordinates. Mostly used for extracting shapes. 
-        ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
-        planes = self.backbone.synthesis(ws, pc=pc, box_warp=box_warp, update_emas=update_emas, **synthesis_kwargs)
+        if self.synthesis_no_latent:
+            # print("synthesis_no_latent")
+            planes = self.backbone.synthesis(None, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
+        else:
+            ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
+            planes = self.backbone.synthesis(ws, pc=pc, box_warp=box_warp, update_emas=update_emas, **synthesis_kwargs)
         planes = planes.view(len(planes), 3, 32, planes.shape[-2], planes.shape[-1])
         return self.renderer.run_model(planes, self.decoder, coordinates, directions, self.rendering_kwargs)
 
     def sample_mixed(self, coordinates, directions, ws, pc=None, box_warp=None, truncation_psi=1, truncation_cutoff=None, update_emas=False, **synthesis_kwargs):
         # Same as sample, but expects latent vectors 'ws' instead of Gaussian noise 'z'
-        planes = self.backbone.synthesis(ws, pc=pc, box_warp=box_warp, update_emas = update_emas, **synthesis_kwargs)
+        if self.synthesis_no_latent:
+            # print("synthesis_no_latent")
+            planes = self.backbone.synthesis(None, pc=pc, box_warp=self.rendering_kwargs['box_warp'], update_emas=update_emas, **synthesis_kwargs)
+        else:
+            planes = self.backbone.synthesis(ws, pc=pc, box_warp=box_warp, update_emas = update_emas, **synthesis_kwargs)
         if isinstance(planes, tuple):
             planes = list(planes)
             planes[0]=planes[0].view(len(planes[0]), 3, 32, planes[0].shape[-2], planes[0].shape[-1])

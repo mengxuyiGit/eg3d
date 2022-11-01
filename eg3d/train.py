@@ -207,6 +207,8 @@ def parse_comma_separated_list(s):
 @click.option('--use_ray_directions', help='If true, use_ray_directions during rendering.', metavar='BOOL',  type=bool, required=False, default=True)
 @click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=10), default=0.5, show_default=True)
 @click.option('--z_from_pc', help='Latent z is not randomly sampled, but condition on input point cloud.', metavar='BOOL',  type=bool, required=False, default=False)
+@click.option('--synthesis_no_latent', help='Not using latent to generate.', metavar='BOOL',  type=bool, required=False, default=False)
+
 
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
@@ -310,6 +312,7 @@ def main(**kwargs):
         c.G_kwargs.decoder_dim = opts.decoder_dim
         c.G_kwargs.noise_strength = opts.noise_strength
         c.G_kwargs.z_from_pc = opts.z_from_pc
+        c.G_kwargs.synthesis_no_latent = opts.synthesis_no_latent
         
         if opts.use_patch:
             c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'

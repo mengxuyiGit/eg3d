@@ -247,7 +247,7 @@ class MappingNetwork(torch.nn.Module):
 
     def forward(self, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False):
         # Embed, normalize, and concat inputs.
-        print('here')
+     
         x = None
         with torch.autograd.profiler.record_function('input'):
             if self.z_dim > 0:
@@ -565,7 +565,7 @@ class SynthesisNetwork(torch.nn.Module):
         self.grid_size=[volume_res]*3
         unet_in_channels = 32
         # self.unet3d=CostRegNet_Deeper(unet_in_channels, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
-        self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels, 
+        self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels,
                                 use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
 
     def forward(self, ws, pc, box_warp, **block_kwargs):
