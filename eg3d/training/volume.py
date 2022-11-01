@@ -269,7 +269,7 @@ class OSGDecoder_separate(torch.nn.Module):
         self.use_ray_directions = options['use_ray_directions']
 
         self.occ_n_features = n_features//2
-        self.color_n_features = n_features # use also occ features
+        self.color_n_features = n_features//2 # use also occ features
         if self.use_ray_directions:
             self.color_n_features += 3
             
@@ -294,7 +294,7 @@ class OSGDecoder_separate(torch.nn.Module):
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
        
         sampled_features_occ = sampled_features[...,:self.occ_n_features]
-        sampled_features_color = sampled_features
+        sampled_features_color = sampled_features[...,self.occ_n_features:]
 
         if self.use_ray_directions:
             sampled_features_color = torch.cat([sampled_features_color, ray_directions], -1)
