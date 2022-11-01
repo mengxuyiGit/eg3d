@@ -187,6 +187,8 @@ def check_ddp_consistency(module, ignore_regex=None):
         fullname = type(module).__name__ + '.' + name
         if 'backbone' in fullname:
             continue
+        if 'pc2z' in fullname:
+            continue
         if ignore_regex is not None and re.fullmatch(ignore_regex, fullname):
             continue
         tensor = tensor.detach()
