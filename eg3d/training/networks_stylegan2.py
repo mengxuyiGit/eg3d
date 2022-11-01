@@ -22,6 +22,7 @@ from torch_utils.ops import upfirdn2d
 from torch_utils.ops import bias_act
 from torch_utils.ops import fma
 
+from ipdb import set_trace as st
 #----------------------------------------------------------------------------
 
 @misc.profiled_function
