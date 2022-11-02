@@ -4,7 +4,7 @@ CUDA_VISIBLE_DEVICES=1
 GPUS=2
 BATCH_SIZE=4
 BASE_DIR=/home/xuyi/Repo/eg3d
-BASE_DIR=/xuyi-fast-vol/Repo-fast/eg3d
+# BASE_DIR=/xuyi-fast-vol/Repo-fast/eg3d
 
 # ##-------- abo/shapenet with triplane -----------
 # # DATA=${BASE_DIR}/dataset_preprocessing/shapenet_cars/cars_128_copy.zip
@@ -43,7 +43,3 @@ python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --discriminator_condition_on_real True --drop_pixel_ratio 0.8 \
   --use_patch True --z_from_pc False \
   --use_l1 True --l1_reg 100 
-
-  # --use_perception True --perception_reg 1 \
-  # --use_l1 True \
-  # --use_chamfer True \

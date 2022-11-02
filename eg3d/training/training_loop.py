@@ -30,7 +30,9 @@ import legacy
 from metrics import metric_main
 from camera_utils import LookAtPoseSampler
 from training.crosssection_utils import sample_cross_section
+
 from ipdb import set_trace as st
+from plyfile import PlyData,PlyElement
 #----------------------------------------------------------------------------
 
 def setup_snapshot_image_grid(training_set, random_seed=0):
@@ -93,6 +95,48 @@ def save_image_grid(img, fname, drange, grid_size):
     if C == 3:
         PIL.Image.fromarray(img, 'RGB').save(fname)
 
+#----------------------------------------------------------------------------
+
+def save_ply_from_tensor(points, save_path, color=None, write_text=False):
+    if color != None:
+        pts_color = torch.tensor(color, device=points.device).repeat(points.shape[0],1)
+        points = torch.cat((points, pts_color), dim=-1)
+
+    assert points.shape[-1]>=6
+    pts = points.numpy()
+    n = pts.shape[0]
+    x, y, z = pts[:,0], pts[:,1], pts[:,2]
+    pts = (pts*255).astype(int)
+    red, green, blue = pts[:,3], pts[:,4], pts[:,5]
+
+    # connect the proper data structures
+    vertices = np.empty(n, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    vertices['x'] = x.astype('f4')
+    vertices['y'] = y.astype('f4')
+    vertices['z'] = z.astype('f4')
+    vertices['red'] = red.astype('u1')
+    vertices['green'] = green.astype('u1')
+    vertices['blue'] = blue.astype('u1')
+
+    # save as ply
+    ply = PlyData([PlyElement.describe(vertices, 'vertex')], text=False)
+    ply.write(save_path)
+    # print("Ply file saved to:", save_path)
+    return 
+
+def save_fetched_data(phase_real_img, phase_real_c, phase_real_pc):
+    # print(phase_real_img, phase_real_c, phase_real_pc)
+    
+    if phase_real_img.dim()>3:
+        for i, (img, c, pc) in enumerate(zip(phase_real_img, phase_real_c, phase_real_pc)):
+            save_path = os.path.join("/home/xuyi/Repo/eg3d/try-runs/debug_data", f"data_{i}")
+            print(save_path)
+            PIL.Image.fromarray(img.detach().clone().cpu().numpy().transpose(1,2,0), 'RGB').save(f"{save_path}.png")
+            save_ply_from_tensor(pc.detach().clone().cpu(), f"{save_path}.ply")
+            print(c)
+        st()
+
+    return 
 #----------------------------------------------------------------------------
 
 def training_loop(
@@ -290,11 +334,18 @@ def training_loop(
     batch_idx = 0
     if progress_fn is not None:
         progress_fn(0, total_kimg)
+    
+    DEBUG_DATA=True
+
     while True:
 
         # Fetch training data.
         with torch.autograd.profiler.record_function('data_fetch'):
             phase_real_img, phase_real_c, phase_real_pc = next(training_set_iterator)
+            if DEBUG_DATA:
+                save_fetched_data(phase_real_img, phase_real_c, phase_real_pc)
+                continue
+
             phase_real_img = (phase_real_img.to(device).to(torch.float32) / 127.5 - 1).split(batch_gpu)
             phase_real_c = phase_real_c.to(device).split(batch_gpu)
             phase_real_pc = phase_real_pc.to(device).split(batch_gpu)
