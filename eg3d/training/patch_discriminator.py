@@ -148,7 +148,7 @@ class PatchDiscriminator(torch.nn.Module):
         
 
     def forward(self, img, target:bool, return_pred=False):
-        
+        return 
         pred = self.patchD(img)
         patch_loss = self.criterionGAN(pred, target)
         

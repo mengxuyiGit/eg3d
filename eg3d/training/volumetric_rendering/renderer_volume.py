@@ -144,7 +144,6 @@ class VolumeImportanceRenderer(torch.nn.Module):
         densities_coarse = densities_coarse.reshape(batch_size, num_rays, samples_per_ray, 1)
 
         # Fine Pass
-        # st()
         N_importance = rendering_options['depth_resolution_importance']
         if N_importance > 0:
             _, _, weights = self.ray_marcher(colors_coarse, densities_coarse, depths_coarse, rendering_options)
@@ -172,7 +171,6 @@ class VolumeImportanceRenderer(torch.nn.Module):
         return rgb_final, depth_final, weights.sum(2)
 
     def run_model(self, planes, decoder, sample_coordinates, sample_directions, options):
-        # st()
         # if planes.shape[1]==96:
         if isinstance(planes, list):
             # st()

@@ -335,7 +335,7 @@ def training_loop(
     if progress_fn is not None:
         progress_fn(0, total_kimg)
     
-    DEBUG_DATA=True
+    DEBUG_DATA=False
 
     while True:
 

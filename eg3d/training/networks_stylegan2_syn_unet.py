@@ -246,6 +246,7 @@ class MappingNetwork(torch.nn.Module):
             self.register_buffer('w_avg', torch.zeros([w_dim]))
 
     def forward(self, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False):
+        return None
         # Embed, normalize, and concat inputs.
         x = None
         with torch.autograd.profiler.record_function('input'):
@@ -568,41 +569,6 @@ class SynthesisNetwork(torch.nn.Module):
                                 use_noise=(noise_strength!=0), noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
 
     def forward(self, ws, pc, box_warp, **block_kwargs):
-    # def forward(self, ws, **block_kwargs):
-        RETURN_IMG=False
-        if RETURN_IMG:
-            # st()
-            block_ws = []
-            ######## latents ----------------
-
-            with torch.autograd.profiler.record_function('split_ws'):
-                misc.assert_shape(ws, [None, self.num_ws, self.w_dim])
-                ws = ws.to(torch.float32)
-                w_idx = 0
-                for res in self.block_resolutions:
-                    block = getattr(self, f'b{res}')
-                    block_ws.append(ws.narrow(1, w_idx, block.num_conv + block.num_torgb))
-                    w_idx += block.num_conv
-
-
-        # ----change to all with the same global latent------------
-
-            # v1: no need to process ws: concat all at the bottleneck
-            # v2: progressively add latents during upconv
-
-        
-        ########## generate tri-plane ##############
-        
-            x = img = None
-            # st() # pc.shape
-            for res, cur_ws in zip(self.block_resolutions, block_ws):
-                block = getattr(self, f'b{res}')
-                x, img = block(x, img, cur_ws, **block_kwargs)
-            # st() # align with img.shape: torch.Size([4, 96, 256, 256]):  B,C,H,W
-            # target 3d img shape: 1, 32, 64, 64, 64 
-            return img
-        
-        # ----change to 3D Unet ------------
 
         # # 1. voxelize input pc
         

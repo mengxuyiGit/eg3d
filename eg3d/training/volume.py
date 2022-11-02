@@ -104,16 +104,19 @@ class VolumeGenerator(torch.nn.Module):
        
         cam2world_matrix = c[:, :16].view(-1, 4, 4)
         intrinsics = c[:, 16:25].view(-1, 3, 3)
-        
+        DEBUG_MODE = True
+        if DEBUG_MODE:
+            neural_rendering_resolution = 128
+            self.neural_rendering_resolution = 128
 
-        if neural_rendering_resolution is None:
+        elif neural_rendering_resolution is None:
             neural_rendering_resolution = self.neural_rendering_resolution
         else:
             self.neural_rendering_resolution = neural_rendering_resolution
 
         # Create a batch of rays for volume rendering
         ray_origins, ray_directions = self.ray_sampler(cam2world_matrix, intrinsics, neural_rendering_resolution)
-        # TODO Oct 16: check aligning result with lego tensorf in mvsnerf
+      
 
         # Create triplanes by running StyleGAN backbone
         N, M, _ = ray_origins.shape
@@ -146,7 +149,7 @@ class VolumeGenerator(torch.nn.Module):
 
         # Perform volume rendering
         ## already adapted to volume
-        # st()
+        #### render 128 directly
         feature_samples, depth_samples, weights_samples = self.renderer(planes, self.decoder, ray_origins, ray_directions, self.rendering_kwargs) # channels last
         # st()
         
@@ -159,8 +162,11 @@ class VolumeGenerator(torch.nn.Module):
         # Run superresolution to get final image
         rgb_image = feature_image[:, :3]
         # st()
-        sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
-
+        if DEBUG_MODE:
+            sr_image = rgb_image
+        else:
+            sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
+        
         return {'image': sr_image, 'image_raw': rgb_image, 'image_depth': depth_image}
     
     def sample(self, coordinates, directions, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False, **synthesis_kwargs):

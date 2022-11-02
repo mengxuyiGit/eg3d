@@ -33,7 +33,7 @@ import numpy as np
 #----------------------------------------------------------------------------
 
 def subprocess_fn(rank, c, temp_dir):
-    # dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
+    dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
 
     # Init torch.distributed.
     if c.num_gpus > 1:
@@ -58,7 +58,7 @@ def subprocess_fn(rank, c, temp_dir):
 #----------------------------------------------------------------------------
 
 def launch_training(c, desc, outdir, dry_run):
-    # dnnlib.util.Logger(should_flush=True)
+    dnnlib.util.Logger(should_flush=True)
 
     # Pick output directory.
     prev_run_dirs = []
@@ -393,8 +393,11 @@ def main(**kwargs):
         })
     elif opts.cfg == 'abo_dataset':
         rendering_options.update({
-            'depth_resolution': 64,
-            'depth_resolution_importance': 16,
+            # 'depth_resolution': 64,
+            # 'depth_resolution_importance': 16,
+            ## below is to align with MVSNeRF
+            'depth_resolution': 128,
+            'depth_resolution_importance': 0,
             'ray_start': 0.1,
             'ray_end': 2.6,
             'box_warp': 1.6,
