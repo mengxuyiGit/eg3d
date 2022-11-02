@@ -92,12 +92,15 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             # st()
             if labels is not None:
                 try:
-                    pc_rel_paths = { x[0]: x[2] for x in labels }
+                    st()
+                    # pc_rel_paths = { x[0]: x[2] for x in labels }
+                    pc_rel_paths = { os.path.relpath(x[0], '../output_cutter') : x[2] for x in labels }
+                    
                     # print(pc_rel_paths)
                 except:
                     print("No pointcloud input in dataset")
                     pc_rel_paths = {}
-                labels = { x[0]: x[1] for x in labels }
+                labels = {os.path.relpath(x[0], '../output_cutter') : x[1] for x in labels }
                 
             else:
                 labels = {}
@@ -141,6 +144,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             
             arch_fname = os.path.splitext(arch_fname)[0]
             label_get = labels.get(arch_fname)
+       
             if label_get != None:
                 # st()
                 # print('fname, labels.get(fname)', arch_fname)

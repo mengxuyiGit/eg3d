@@ -25,23 +25,16 @@ if __name__ == '__main__':
         # output_dataset_name = 'abo_128_completed.zip'
         # output_dataset_name = 'abo_128_completed_white.zip'
         # output_dataset_name = 'abo_512_completed_white.zip'
-        output_dataset_name = 'debug.zip'
+        output_dataset_name = 'debug_one_obj_one_view.zip'
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        # extracted_data_path = os.path.join(working_dir, os.path.splitext(download_name)[0])
-        extracted_data_path = '/home/xuyi/Data/renderer/output_abo'
-        print("Downloading data...")
-        # zipped_dataset = os.path.join(working_dir, download_name)
-        # gdown.download(url, zipped_dataset, quiet=False)
-
-        print("Unzipping downloaded data...")
-        # shutil.unpack_archive(zipped_dataset, working_dir)
-
+        extracted_data_path = '/home/xuyi/Data/renderer/output_debug'
+       
         print("Converting camera parameters...")
         cmd = f"python {os.path.join(dir_path, 'preprocess_abo_cameras.py')} --source={extracted_data_path}"
         subprocess.run([cmd], shell=True)
 
         print("Creating dataset zip...")
         cmd = f"python {os.path.join(dir_path, '../../eg3d', 'dataset_tool.py')}"
-        cmd += f" --source {extracted_data_path} --dest {output_dataset_name} --resolution 512x512 --read_pointcloud"
+        cmd += f" --source {extracted_data_path} --dest {output_dataset_name} --resolution 128x128 --read_pointcloud"
         subprocess.run([cmd], shell=True)

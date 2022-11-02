@@ -47,9 +47,10 @@ if __name__ == '__main__':
 
     #### this is using predefined list, to avoid folders that the datageneration is not complete
     all_data = []
-    resolution = 512 
+    resolution = 128
     for split in ['train', 'val']:
-        with open(os.path.join(dataset_path, 'meta', f'abo_{resolution}_{split}.txt')) as f:
+        # with open(os.path.join(dataset_path, 'meta', f'abo_{resolution}_{split}.txt')) as f:
+        with open(os.path.join(dataset_path, 'meta', f'debug_2048_{resolution}_{split}.txt')) as f:
             scans = [line.rstrip() for line in f.readlines()]
             all_data += scans
     print(len(all_data), all_data)
@@ -80,7 +81,7 @@ if __name__ == '__main__':
                     [0.00000000e+00, focal / h, (h / 2)/h],
                     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
                 ).tolist()
-        st()
+    
 
         # continue
         # for rgb_path in list_recursive(os.path.join(scene_folder_path, 'render')):
