@@ -312,21 +312,23 @@ class StyleGAN2Loss(Loss):
                 
 
                 if self.use_patchD:
-             
-                    if self.discriminator_condition_on_real: # cat with pixel_dropped image
-                        gi = gen_img['image']
-                        ri = self.drop_out_pixels(real_img['image'].detach().clone())
-                        img = torch.cat([ri, gi], 1)
+                    if self.patchD_reg==0:
+                        loss_Gmain=torch.tensor([0]).to(gen_c)
+                    else:
+                        if self.discriminator_condition_on_real: # cat with pixel_dropped image
+                            gi = gen_img['image']
+                            ri = self.drop_out_pixels(real_img['image'].detach().clone())
+                            img = torch.cat([ri, gi], 1)
+                            
+                        else: 
+                            img = gen_img['image']
                         
-                    else: 
-                        img = gen_img['image']
-                       
-                    target = True
-                    patch_loss = self.run_patchD(img, target)*self.patchD_reg
-                    loss_Gmain = patch_loss
-                    print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
-                    training_stats.report('Loss/G/patch_loss_fake',patch_loss)
-                    training_stats.report('Loss/G/loss', loss_Gmain)
+                        target = True
+                        patch_loss = self.run_patchD(img, target)*self.patchD_reg
+                        loss_Gmain = patch_loss
+                        print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
+                        training_stats.report('Loss/G/patch_loss_fake',patch_loss)
+                        training_stats.report('Loss/G/loss', loss_Gmain)
                 
                 else:
                     gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
@@ -548,21 +550,20 @@ class StyleGAN2Loss(Loss):
 
         # Dmain: Minimize logits for generated images.
         loss_Dgen = 0
-        if phase in ['Dmain', 'Dboth']:
+        if phase in ['Dmain', 'Dboth'] and self.patchD_reg!=0:
             with torch.autograd.profiler.record_function('Dgen_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution, update_emas=True)
                 
                 if self.use_patchD:
-             
+                    
                     if self.discriminator_condition_on_real: # cat with pixel_dropped image
                         gi = gen_img['image']
                         ri = self.drop_out_pixels(real_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
-        
                         
                     else: 
                         img = gen_img['image']
-                       
+                    
                     target = False
                     patch_loss_Dgen = self.run_patchD(img, target)*self.patchD_reg
                     loss_Dgen = patch_loss_Dgen
@@ -581,7 +582,7 @@ class StyleGAN2Loss(Loss):
 
         # Dmain: Maximize logits for real images.
         # Dr1: Apply R1 regularization.
-        if phase in ['Dmain', 'Dreg', 'Dboth']:
+        if phase in ['Dmain', 'Dreg', 'Dboth'] and self.patchD_reg!=0:
             loss_Dreal = 0
 
             name = 'Dreal' if phase == 'Dmain' else 'Dr1' if phase == 'Dreg' else 'Dreal_Dr1'
@@ -591,20 +592,22 @@ class StyleGAN2Loss(Loss):
                 real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
 
                 if self.use_patchD:
-
-                    if self.discriminator_condition_on_real: # cat with pixel_dropped image
-                        gi = real_img_tmp_image # this will do reg for image
-                        ri = self.drop_out_pixels(real_img['image'].detach().clone())
-                        img = torch.cat([ri, gi], 1)
+                    if self.patchD_reg==0:
+                        loss_Dreal += torch.tensor([0]).to(gen_c)
+                    else:
+                        if self.discriminator_condition_on_real: # cat with pixel_dropped image
+                            gi = real_img_tmp_image # this will do reg for image
+                            ri = self.drop_out_pixels(real_img['image'].detach().clone())
+                            img = torch.cat([ri, gi], 1)
+                            
+                        else: 
+                            img = real_img_tmp_image
                         
-                    else: 
-                        img = real_img_tmp_image
-                       
-                    target = True
-                    patch_loss_Dreal, real_logits = self.run_patchD(img, target, return_pred=True)
-                    loss_Dreal += patch_loss_Dreal*self.patchD_reg
-                    # print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal*self.patchD_reg).sum().item()}-------------")
-                    training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
+                        target = True
+                        patch_loss_Dreal, real_logits = self.run_patchD(img, target, return_pred=True)
+                        loss_Dreal += patch_loss_Dreal*self.patchD_reg
+                        # print(f"---------loss_patch_Dreal\t\t(x{self.patchD_reg}): {(patch_loss_Dreal*self.patchD_reg).sum().item()}-------------")
+                        training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
                 
                 else:
                     real_logits = self.run_D(real_img_tmp, real_c, blur_sigma=blur_sigma, update_emas=True)
