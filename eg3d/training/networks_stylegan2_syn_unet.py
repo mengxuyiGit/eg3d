@@ -32,8 +32,8 @@ import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
 from training.costregnet import CostRegNet_Deeper, Synthesis3DUnet
-# from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
-from training.costregnet import Synthesis3DUnet_lit_without_latent as Synthesis3DUnet_separate
+from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
+# from training.costregnet import Synthesis3DUnet_lit_without_latent as Synthesis3DUnet_separate
 
 
 #----------------------------------------------------------------------------
@@ -657,6 +657,7 @@ class SynthesisNetwork(torch.nn.Module):
             volume_color = _feature_3d.permute(0,1,4,3,2)
 
             ### Occupancy + Color
+        
             volume = torch.cat([volume_occupancy, volume_color],1)
             
         else:

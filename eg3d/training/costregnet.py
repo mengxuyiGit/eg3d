@@ -444,6 +444,7 @@ class Synthesis3DUnet_lit_without_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^
         super(Synthesis3DUnet_lit_without_latent, self).__init__()
 
         self.use_noise = use_noise
+        st()
         # noise_strength = 0.5
         self.noise_strength = noise_strength
 
@@ -552,9 +553,10 @@ class Synthesis3DUnet_only_halve_output_layer(nn.Module): # 256^3 -> 8^3; 128^3 
             affine_act='relu', #### ???? FIXME: is this a good activation 
             norm_act=InPlaceABN):
 
-        super(Synthesis3DUnet, self).__init__()
+        super(Synthesis3DUnet_only_halve_output_layer, self).__init__()
 
         self.use_noise = use_noise
+
         # noise_strength = 0.5
         self.noise_strength = noise_strength
 
@@ -617,11 +619,11 @@ class Synthesis3DUnet_only_halve_output_layer(nn.Module): # 256^3 -> 8^3; 128^3 
         #                        stride=2, bias=False),
         #     norm_act(8))
         self.conv11 = nn.Sequential(
-            nn.ConvTranspose3d(16, out_dim, 3, padding=1, output_padding=1,
+            nn.ConvTranspose3d(16, out_dim//2, 3, padding=1, output_padding=1,
                                stride=2, bias=False),
-            norm_act(out_dim))
+            norm_act(out_dim//2))
         self.affine11 = nn.Sequential(
-                        nn.Linear(ws_channel, out_dim),
+                        nn.Linear(ws_channel, out_dim//2),
                         nn.ReLU()
                     )
         

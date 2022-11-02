@@ -43,6 +43,6 @@ python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --noise_strength 1 --snap 10 \
   --discriminator_condition_on_real True --drop_pixel_ratio 0.8 \
   --use_patch True --z_from_pc True \
-  --synthesis_no_latent True \
+  --synthesis_no_latent False \
   --separate_oc_volumes True \
   --rgb_use_occupancy False
