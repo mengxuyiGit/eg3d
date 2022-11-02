@@ -236,7 +236,7 @@ class StyleGAN2Loss(Loss):
             # p = torch.ones([B,total_pixels]).float()
         
 
-        print(total_pixels)
+        # print(total_pixels)
         n = int(total_pixels*drop_ratio)
         replace = False
         drop_idx = p.multinomial(num_samples=n, replacement=replace)
