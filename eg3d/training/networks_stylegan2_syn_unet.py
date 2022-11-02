@@ -31,7 +31,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
-from training.costregnet import CostRegNet_Deeper, Synthesis3DUnet, Synthesis3DUnet_lit_without_latent
+from training.costregnet import CostRegNet_Deeper, Synthesis3DUnet
+# from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
+from training.costregnet import Synthesis3DUnet_lit_without_latent as Synthesis3DUnet_separate
 
 
 #----------------------------------------------------------------------------
@@ -554,8 +556,10 @@ class SynthesisNetwork(torch.nn.Module):
 
         elif self.vfe_feature=='pointnet':
             if self.separate_oc_volumes:
-                self.vfe_model_occupancy = PointNet_lit(fea_dim=3, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
-                self.vfe_model_color = PointNet_lit(fea_dim=9, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
+                # self.vfe_model_occupancy = PointNet_lit(fea_dim=3, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
+                # self.vfe_model_color = PointNet_lit(fea_dim=9, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
+                self.vfe_model_occupancy = PointNet(fea_dim=3, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
+                self.vfe_model_color = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
                 self.fea_compre = False
             else:
                 self.vfe_model = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
@@ -573,10 +577,10 @@ class SynthesisNetwork(torch.nn.Module):
         
         # self.unet3d=CostRegNet_Deeper(unet_in_channels, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         if self.separate_oc_volumes:
-            unet_in_channels = 16
-            self.synthesis_unet3d_occupancy=Synthesis3DUnet_lit_without_latent(unet_in_channels,
+            unet_in_channels = 32
+            self.synthesis_unet3d_occupancy=Synthesis3DUnet_separate(unet_in_channels,
                     use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
-            self.synthesis_unet3d_color=Synthesis3DUnet_lit_without_latent(unet_in_channels,
+            self.synthesis_unet3d_color=Synthesis3DUnet_separate(unet_in_channels,
                     use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         else:
             unet_in_channels = 32
