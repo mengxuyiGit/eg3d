@@ -396,7 +396,7 @@ def main(**kwargs):
             # 'depth_resolution': 64,
             # 'depth_resolution_importance': 16,
             ## below is to align with MVSNeRF
-            'depth_resolution': 128,
+            'depth_resolution': 64,
             'depth_resolution_importance': 0,
             'ray_start': 0.1,
             'ray_end': 2.6,
