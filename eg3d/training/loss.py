@@ -336,7 +336,7 @@ class StyleGAN2Loss(Loss):
                         target = True
                         patch_loss = self.run_patchD(img, target)*self.patchD_reg
                         loss_Gmain = patch_loss
-                        print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
+                        # print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
                         training_stats.report('Loss/G/patch_loss_fake',patch_loss)
                         training_stats.report('Loss/G/loss', loss_Gmain)
                 
@@ -373,7 +373,7 @@ class StyleGAN2Loss(Loss):
                     # l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
                     l1_loss = torch.mean(l1_loss) * self.l1_reg
                     loss_Gmain += l1_loss
-                    print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
+                    # print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
     
                     training_stats.report('Loss/G/l1_loss_whole', l1_loss)
 
