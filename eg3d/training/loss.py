@@ -279,7 +279,7 @@ class StyleGAN2Loss(Loss):
         return ri
         
 
-    def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gen_pc, gain, cur_nimg):
+    def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_gt, gen_c, gen_pc, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
         ############# FIXME Oct 25: uncomment below to still enable Greg phase ##################
         if self.G.rendering_kwargs.get('density_reg', 0) == 0:
@@ -311,12 +311,10 @@ class StyleGAN2Loss(Loss):
 
         real_img = {'image': real_img, 'image_raw': real_img_raw}
 
+        gen_gt_img = {'image': gen_gt}
+
         # Gmain: Maximize logits for generated images.
         if phase in ['Gmain', 'Gboth']:
-            # # use real_img with _grad
-            # real_img_tmp_image = real_img['image'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
-            # real_img_tmp_image_raw = real_img['image_raw'].detach().requires_grad_(phase in ['Gmain', 'Gboth'])
-            # real_img_tmp = {'image': real_img_tmp_image, 'image_raw': real_img_tmp_image_raw}
 
             with torch.autograd.profiler.record_function('Gmain_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
@@ -327,8 +325,9 @@ class StyleGAN2Loss(Loss):
                         loss_Gmain=torch.tensor([0]).to(gen_c)
                     else:
                         if self.discriminator_condition_on_real: # cat with pixel_dropped image
+                            st()
                             gi = gen_img['image']
-                            ri = self.drop_out_pixels(real_img['image'].detach().clone())
+                            ri = self.drop_out_pixels(gen_gt_img['image'].detach().clone())
                             img = torch.cat([ri, gi], 1)
                             
                         else: 
@@ -343,7 +342,7 @@ class StyleGAN2Loss(Loss):
                 
                 else:
                     if self.D.is_conditional_D: # cat with pixel_dropped image
-                        gen_img['condition']=self.get_condition(real_img)
+                        gen_img['condition']=self.get_condition(gen_gt_img)
 
                     gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
                     training_stats.report('Loss/scores/fake', gen_logits)
@@ -361,7 +360,7 @@ class StyleGAN2Loss(Loss):
 
                 # perceptual loss
                 if self.use_perception:
-                    perception_loss = self.cal_perception_loss(gen_img=gen_img, real_img=real_img_tmp)
+                    perception_loss = self.cal_perception_loss(gen_img=gen_img, real_img=gen_gt_img)
                     perception_loss = torch.mean(perception_loss, 1, True) * self.perception_reg
                     loss_Gmain += perception_loss
                     print(f"---------loss_perception\t(x{self.perception_reg}): {(perception_loss).sum().item()}-------------")
@@ -370,7 +369,7 @@ class StyleGAN2Loss(Loss):
 
                 # L1 loss on the whole gen image
                 if self.use_l1:
-                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=real_img)
+                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=gen_gt_img)
                     # l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
                     l1_loss = torch.mean(l1_loss) * self.l1_reg
                     loss_Gmain += l1_loss
@@ -380,7 +379,7 @@ class StyleGAN2Loss(Loss):
 
                 # L2 loss on the whole gen image
                 if self.use_l2:
-                    l2_loss = self.cal_l2_loss(gen_img=gen_img, real_img=real_img_tmp)
+                    l2_loss = self.cal_l2_loss(gen_img=gen_img, real_img=gen_gt_img)
                     l2_loss = torch.mean(l2_loss.flatten(1), -1, True) * self.l2_reg
                     loss_Gmain += l2_loss
                     print(f"---------loss_l2\t\t(x{self.l2_reg}): {(l2_loss).sum().item()}-------------")
@@ -572,7 +571,7 @@ class StyleGAN2Loss(Loss):
                     
                     if self.discriminator_condition_on_real: # cat with pixel_dropped image
                         gi = gen_img['image']
-                        ri = self.drop_out_pixels(real_img['image'].detach().clone())
+                        ri = self.drop_out_pixels(gen_gt_img['image'].detach().clone())
                         img = torch.cat([ri, gi], 1)
                         
                     else: 
@@ -586,7 +585,7 @@ class StyleGAN2Loss(Loss):
                 
                 else:
                     if self.D.is_conditional_D: # cat with pixel_dropped image
-                        gen_img['condition']=self.get_condition(real_img)
+                        gen_img['condition']=self.get_condition(gen_gt_img)
 
                     gen_logits = self.run_D(gen_img, gen_c, blur_sigma=blur_sigma, update_emas=True)
                     training_stats.report('Loss/scores/fake', gen_logits)
