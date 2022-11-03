@@ -30,10 +30,10 @@ BASE_DIR=/home/xuyi/Repo/eg3d
 # DATA=${BASE_DIR}/dataset_preprocessing/shapenet_cars/cars_128_copy.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_copy.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed.zip
-DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed_white.zip
+# DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white_small.zip
-# DATA=${BASE_DIR}/dataset_preprocessing/abo/debug_one_obj_one_view.zip
+DATA=${BASE_DIR}/dataset_preprocessing/abo/debug_one_obj_100_view.zip
 CUDA_VISIBLE_DEVICES=[1]
 GPUS=1
 BATCH_SIZE=4
@@ -43,4 +43,4 @@ python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --noise_strength 1 --snap 1 \
   --discriminator_condition_on_real True --drop_pixel_ratio 0.8 \
   --use_patch True --z_from_pc False \
-  --use_l2 True --l1_reg 100 
+  --use_l2 True --l1_reg 100

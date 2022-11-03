@@ -107,6 +107,16 @@ class Dataset(torch.utils.data.Dataset):
 
         return image.copy(), self.get_label(idx), pointcloud.copy()
 
+    def get_image(self, idx):
+        image = self._load_raw_image(self._raw_idx[idx])
+        assert isinstance(image, np.ndarray)
+        assert list(image.shape) == self.image_shape
+        assert image.dtype == np.uint8
+        if self._xflip[idx]:
+            assert image.ndim == 3 # CHW
+            image = image[:, :, ::-1]
+        return image.copy()
+
     def get_label(self, idx):
         label = self._get_raw_labels()[self._raw_idx[idx]]
         if label.dtype == np.int64:

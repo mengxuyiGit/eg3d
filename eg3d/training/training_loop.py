@@ -359,6 +359,12 @@ def training_loop(
             all_gen_z = [phase_gen_z.split(batch_gpu) for phase_gen_z in all_gen_z.split(batch_size)]
             # same indices for c and pc
             gen_indices = [np.random.randint(len(training_set)) for _ in range(len(phases) * batch_size)]
+            # ADD: load all_gen_gt_img
+            all_gen_gt = [training_set.get_image(idx) for idx in gen_indices]
+            all_gen_gt = torch.from_numpy(np.stack(all_gen_gt)).pin_memory().to(device)
+            all_gen_gt = (all_gen_gt.to(torch.float32) / 127.5 - 1) # 0~255 -> -1~1
+            all_gen_gt = [phase_gen_gt.split(batch_gpu) for phase_gen_gt in all_gen_gt.split(batch_size)]
+
             all_gen_c = [training_set.get_label(idx) for idx in gen_indices]
             all_gen_c = torch.from_numpy(np.stack(all_gen_c)).pin_memory().to(device)
             all_gen_c = [phase_gen_c.split(batch_gpu) for phase_gen_c in all_gen_c.split(batch_size)]
@@ -369,7 +375,7 @@ def training_loop(
      
 
         # Execute training phases.
-        for phase, phase_gen_z, phase_gen_c, phase_gen_pc in zip(phases, all_gen_z, all_gen_c, all_gen_pc):
+        for phase, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc in zip(phases, all_gen_z, all_gen_gt, all_gen_c, all_gen_pc):
             if batch_idx % phase.interval != 0:
                 continue
             if phase.start_event is not None:
@@ -382,15 +388,15 @@ def training_loop(
             # if rank == 0:
             #     print('############# current phase:', phase, '############')
 
-            if DEBUG_DATA:
+            # if DEBUG_DATA:
                 
-                save_fetched_data((phase_real_img[0].detach().clone() + 1)*127.5, phase_real_c[0], phase_real_pc[0], data_idx)
-                data_idx += 1
-                # continue
-                st()
+            #     save_fetched_data((phase_real_img[0].detach().clone() + 1)*127.5, phase_real_c[0], phase_real_pc[0], data_idx)
+            #     data_idx += 1
+            #     # continue
+            #     st()
 
-            for real_img, real_c, gen_z, gen_c, gen_pc in zip(phase_real_img, phase_real_c, phase_gen_z, phase_gen_c, phase_gen_pc):
-                loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
+            for real_img, real_c, gen_z, gen_gt, gen_c, gen_pc in zip(phase_real_img, phase_real_c, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc):
+                loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_gt=gen_gt, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
             if 'G' in phase:
                 st() # check patchD
             phase.module.requires_grad_(False)

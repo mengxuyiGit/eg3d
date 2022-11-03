@@ -139,7 +139,7 @@ class StyleGAN2Loss(Loss):
         return loss
         
 
-    def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gen_pc, gain, cur_nimg):
+    def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_gt, gen_c, gen_pc, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
 
         # phase_real_img.to(device).to(torch.float32) / 127.5 - 1
@@ -150,13 +150,14 @@ class StyleGAN2Loss(Loss):
         neural_rendering_resolution=128 # hardcoded for debug
 
         real_img = {'image': real_img}
+        gen_gt_img = {'image': gen_gt}
 
         if phase in ['Gmain', 'Gboth']:
 
             with torch.autograd.profiler.record_function('Gmain_forward'):
-                real_img_to_save = (real_img['image'].detach().clone() + 1)*127.5
-                save_fetched_data(real_img_to_save, gen_c, gen_pc, 'runG')
-                st()
+                # real_img_to_save = (gen_gt.detach().clone() + 1)*127.5
+                # save_fetched_data(real_img_to_save, gen_c, gen_pc, 'gen_gt')
+                # st()
 
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
                 
@@ -173,7 +174,7 @@ class StyleGAN2Loss(Loss):
 
                 # L2 loss on the whole gen image
                 if self.use_l2:
-                    l2_loss = self.cal_l2_loss(gen_img=gen_img, real_img=real_img)
+                    l2_loss = self.cal_l2_loss(gen_img=gen_img, real_img=gen_gt_img)
                     l2_loss = torch.mean(l2_loss) * self.l2_reg
 
                     loss_Gmain = l2_loss
@@ -181,8 +182,8 @@ class StyleGAN2Loss(Loss):
 
                     training_stats.report('Loss/G/l2_loss_whole', l2_loss)
                     
-                # with torch.autograd.profiler.record_function('Gmain_backward'):
-                #     loss_Gmain.mean().mul(gain).backward()
+                with torch.autograd.profiler.record_function('Gmain_backward'):
+                    loss_Gmain.mean().mul(gain).backward()
                     # for name, param in self.G.backbone.synthesis.synthesis_unet3d.named_parameters():
          
                     #     if param.requires_grad:

@@ -180,11 +180,11 @@ class VolumeGenerator(torch.nn.Module):
         rgb_image = feature_image[:, :3]
         # st()
         if DEBUG_MODE:
-            save_path = 'render_rgb'
-            save_image_(rgb_image.detach().clone(), f"{save_path}.png", drange=[-1,rgb_image.max().item()+0.001])
-            # PIL.Image.fromarray(rgb_image[0].detach().clone().cpu().numpy().transpose(1,2,0), 'RGB').save(f"{save_path}.png")
+            # save_path = 'render_rgb'
+            # save_image_(rgb_image.detach().clone(), f"{save_path}.png", drange=[-1,rgb_image.max().item()+0.001])
+            # # PIL.Image.fromarray(rgb_image[0].detach().clone().cpu().numpy().transpose(1,2,0), 'RGB').save(f"{save_path}.png")
             sr_image = rgb_image
-            st()
+            # st()
         else:
             sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
         
@@ -241,50 +241,52 @@ class OSGDecoder(torch.nn.Module):
         )
         
         
-    # def forward(self, sampled_features, ray_directions):
-    #     # st() # x.shape
-    #     # Aggregate features
-        
-    #     sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
-        
-    #     if self.use_ray_directions:
-    #         sampled_features = torch.cat([sampled_features, ray_directions], -1)
-
-    #     x = sampled_features
-
-    #     N, M, C = x.shape
-    #     x = x.view(N*M, C)
-
-    #     x = self.net(x)
-    #     x = x.view(N, M, -1)
-       
-    #     rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
-    #     sigma = x[..., 0:1]
-       
-    #     return {'rgb': rgb, 'sigma': sigma}
-
     def forward(self, sampled_features, ray_directions):
         # st() # x.shape
         # Aggregate features
         
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
-        # if sampled_features.max() != 0:
-        #     st()
-        # if self.use_ray_directions:
-        #     sampled_features = torch.cat([sampled_features, ray_directions], -1)
+        
+        if self.use_ray_directions:
+            sampled_features = torch.cat([sampled_features, ray_directions], -1)
 
         x = sampled_features
 
         N, M, C = x.shape
-        # x = x.view(N*M, C)
+        x = x.view(N*M, C)
 
-        # x = self.net(x)
-        # x = x.view(N, M, -1)
-     
-        assert C == 4
+        x = self.net(x)
+        x = x.view(N, M, -1)
        
-        # rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
-        rgb = x[..., 1:] # directly take voxel color
+        rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
         sigma = x[..., 0:1]
        
         return {'rgb': rgb, 'sigma': sigma}
+
+
+## ----------------hard rendering--------------------------------------------
+    # def forward(self, sampled_features, ray_directions):
+    #     # st() # x.shape
+    #     # Aggregate features
+        
+    #     sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
+    #     # if sampled_features.max() != 0:
+    #     #     st()
+    #     # if self.use_ray_directions:
+    #     #     sampled_features = torch.cat([sampled_features, ray_directions], -1)
+
+    #     x = sampled_features
+
+    #     N, M, C = x.shape
+    #     # x = x.view(N*M, C)
+
+    #     # x = self.net(x)
+    #     # x = x.view(N, M, -1)
+     
+    #     assert C == 4
+       
+    #     # rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
+    #     rgb = x[..., 1:] # directly take voxel color
+    #     sigma = x[..., 0:1]
+       
+    #     return {'rgb': rgb, 'sigma': sigma}
