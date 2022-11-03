@@ -196,6 +196,8 @@ def training_loop(
                 img_d = torch.cat([img_d, img_d], 1) # [B,6,H,W]
             misc.print_module_summary(D, [img_d, True])
         else:
+            if loss_kwargs.discriminator_condition_on_real:
+                img['condition']=torch.zeros_like(img['image']) # [B,6,H,W]
             misc.print_module_summary(D, [img, c])
 
     # Setup augmentation.

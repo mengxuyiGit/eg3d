@@ -133,6 +133,7 @@ class StyleGAN2Loss(Loss):
         return gen_output, ws
 
     def run_D(self, img, c, blur_sigma=0, blur_sigma_raw=0,   update_emas=False):
+        # st() # check img['image'].shape: ([B, 3, 128, 128]))
         blur_size = np.floor(blur_sigma * 3)
         if blur_size > 0:
             with torch.autograd.profiler.record_function('blur'):
@@ -145,7 +146,7 @@ class StyleGAN2Loss(Loss):
                                                     dim=1))
             img['image'] = augmented_pair[:, :img['image'].shape[1]]
             img['image_raw'] = torch.nn.functional.interpolate(augmented_pair[:, img['image'].shape[1]:], size=img['image_raw'].shape[2:], mode='bilinear', antialias=True)
-
+        # st() # check img['image'].shape: ([B, 3, 128, 128]))
         logits = self.D(img, c, update_emas=update_emas)
         return logits
     
@@ -266,6 +267,16 @@ class StyleGAN2Loss(Loss):
         # self.save_image_(result, 'drop_pixel_result.png', [-1,1])
 
         return result
+    
+    def get_condition(self, real_img):
+        if self.discriminator_condition_on_real:
+            ri = self.drop_out_pixels(real_img['image'].detach().clone())
+        elif self.discriminator_condition_on_projection:
+            ri = real_img['projection']
+        else:
+            print("Not supported type of condition")
+
+        return ri
         
 
     def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gen_pc, gain, cur_nimg):
@@ -331,6 +342,9 @@ class StyleGAN2Loss(Loss):
                         training_stats.report('Loss/G/loss', loss_Gmain)
                 
                 else:
+                    if self.D.is_conditional_D: # cat with pixel_dropped image
+                        gen_img['condition']=self.get_condition(real_img)
+
                     gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
                     training_stats.report('Loss/scores/fake', gen_logits)
                     training_stats.report('Loss/signs/fake', gen_logits.sign())
@@ -571,6 +585,9 @@ class StyleGAN2Loss(Loss):
                     # print(f"---------loss_patch Dfake\t\t(x{self.patchD_reg}): {(patch_loss_Dgen).sum().item()}-------------")
                 
                 else:
+                    if self.D.is_conditional_D: # cat with pixel_dropped image
+                        gen_img['condition']=self.get_condition(real_img)
+
                     gen_logits = self.run_D(gen_img, gen_c, blur_sigma=blur_sigma, update_emas=True)
                     training_stats.report('Loss/scores/fake', gen_logits)
                     training_stats.report('Loss/signs/fake', gen_logits.sign())
@@ -610,6 +627,9 @@ class StyleGAN2Loss(Loss):
                         training_stats.report('Loss/D/patch_loss_real', patch_loss_Dreal)
                 
                 else:
+                    if self.D.is_conditional_D: # cat with pixel_dropped image
+                        real_img_tmp['condition']=self.get_condition(real_img)
+
                     real_logits = self.run_D(real_img_tmp, real_c, blur_sigma=blur_sigma, update_emas=True)
                     training_stats.report('Loss/scores/real', real_logits)
                     training_stats.report('Loss/signs/real', real_logits.sign())

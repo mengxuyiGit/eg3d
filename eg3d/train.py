@@ -319,9 +319,10 @@ def main(**kwargs):
             else:
                 c.D_kwargs.input_nc = 3
         else:
-            assert not opts.discriminator_condition_on_real # not supporting 
             c.D_kwargs.class_name = 'training.patch_discriminator.DualDiscriminator'
-        # c.G_kwargs.decoder_outdim = opts.decoder_outdim
+            if opts.discriminator_condition_on_real:
+                c.D_kwargs.conditional_discriminator = True
+
     else:
         c.G_kwargs.class_name = 'training.triplane.TriPlaneGenerator'
         c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
