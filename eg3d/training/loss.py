@@ -24,6 +24,7 @@ from training.volume import VolumeGenerator
 import clip
 import PIL
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
+from training.training_loop import save_fetched_data
     
 #----------------------------------------------------------------------------
 
@@ -140,9 +141,9 @@ class StyleGAN2Loss(Loss):
 
     def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gen_pc, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
-     
-        
 
+        # phase_real_img.to(device).to(torch.float32) / 127.5 - 1
+        
         alpha = min(cur_nimg / (self.gpc_reg_fade_kimg * 1e3), 1) if self.gpc_reg_fade_kimg > 0 else 1
         swapping_prob = (1 - alpha) * 1 + alpha * self.gpc_reg_prob if self.gpc_reg_prob is not None else None
 
@@ -153,8 +154,12 @@ class StyleGAN2Loss(Loss):
         if phase in ['Gmain', 'Gboth']:
 
             with torch.autograd.profiler.record_function('Gmain_forward'):
+                real_img_to_save = (real_img['image'].detach().clone() + 1)*127.5
+                save_fetched_data(real_img_to_save, gen_c, gen_pc, 'runG')
+                st()
+
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
-            
+                
 
                 # # L1 loss on the whole gen image
                 # if self.use_l1:
@@ -176,8 +181,8 @@ class StyleGAN2Loss(Loss):
 
                     training_stats.report('Loss/G/l2_loss_whole', l2_loss)
                     
-                with torch.autograd.profiler.record_function('Gmain_backward'):
-                    loss_Gmain.mean().mul(gain).backward()
+                # with torch.autograd.profiler.record_function('Gmain_backward'):
+                #     loss_Gmain.mean().mul(gain).backward()
                     # for name, param in self.G.backbone.synthesis.synthesis_unet3d.named_parameters():
          
                     #     if param.requires_grad:

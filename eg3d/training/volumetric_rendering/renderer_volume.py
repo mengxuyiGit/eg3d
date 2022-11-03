@@ -107,6 +107,38 @@ def sample_from_3dgrid(grid, coordinates):
     N, C, H, W, D = sampled_features.shape
     sampled_features = sampled_features.permute(0, 4, 3, 2, 1).reshape(N, H*W*D, C)
     return sampled_features
+# -------------------------------------------
+from plyfile import PlyData,PlyElement
+import numpy as np
+def save_sample_coordinates(points, save_path, color=None, write_text=False):
+    if color != None:
+        pts_color = torch.tensor(color, device=points.device).repeat(points.shape[0],1)
+        points = torch.cat((points, pts_color), dim=-1)
+
+    assert points.shape[-1]==3
+    pts = points.detach().cpu().numpy()
+    n = pts.shape[0]
+    x, y, z = pts[:,0], pts[:,1], pts[:,2]
+
+    pts = (pts*255).astype(int)
+    # red, green, blue = pts[:,3], pts[:,4], pts[:,5]
+    red, green, blue = np.ones_like(pts[:,1]), np.zeros_like(pts[:,1]), np.zeros_like(pts[:,1])
+
+    # connect the proper data structures
+    vertices = np.empty(n, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    vertices['x'] = x.astype('f4')
+    vertices['y'] = y.astype('f4')
+    vertices['z'] = z.astype('f4')
+    vertices['red'] = red.astype('u1')
+    vertices['green'] = green.astype('u1')
+    vertices['blue'] = blue.astype('u1')
+
+    # save as ply
+    ply = PlyData([PlyElement.describe(vertices, 'vertex')], text=False)
+    ply.write(save_path)
+    # print("Ply file saved to:", save_path)
+    return 
+# -------------------------------------------
 
 class VolumeImportanceRenderer(torch.nn.Module):
     def __init__(self):
@@ -135,9 +167,16 @@ class VolumeImportanceRenderer(torch.nn.Module):
         sample_coordinates = (ray_origins.unsqueeze(-2) + depths_coarse * ray_directions.unsqueeze(-2)).reshape(batch_size, -1, 3)
         sample_directions = ray_directions.unsqueeze(-2).expand(-1, -1, samples_per_ray, -1).reshape(batch_size, -1, 3)
 
-
+        
+        
+ 
         out = self.run_model(planes, decoder, sample_coordinates, sample_directions, rendering_options)
+        # if ray_origins.max() != 0:
+        #     save_sample_coordinates(sample_coordinates[0], 'sample_coordinates.ply')
+        #     # save_sample_coordinates(planes[0,...,1:], 'sample_planes.ply')
+        #     st()
         colors_coarse = out['rgb']
+        # st()
         
         densities_coarse = out['sigma']
         colors_coarse = colors_coarse.reshape(batch_size, num_rays, samples_per_ray, colors_coarse.shape[-1])
@@ -191,9 +230,10 @@ class VolumeImportanceRenderer(torch.nn.Module):
             # st()
             sampled_features = sample_from_volume(planes, sample_coordinates, padding_mode='zeros', box_warp=options['box_warp'])
         # st() # align sampled_features.shape and sampled_features.shape
-
+    
+    
         out = decoder(sampled_features, sample_directions)
-        # st()
+    
         if options.get('density_noise', 0) > 0:
             out['sigma'] += torch.randn_like(out['sigma']) * options['density_noise']
         return out

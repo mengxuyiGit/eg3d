@@ -25,7 +25,8 @@ if __name__ == '__main__':
         # output_dataset_name = 'abo_128_completed.zip'
         # output_dataset_name = 'abo_128_completed_white.zip'
         # output_dataset_name = 'abo_512_completed_white.zip'
-        output_dataset_name = 'debug_one_obj_one_view.zip'
+        # output_dataset_name = 'debug_one_obj_one_view.zip'
+        output_dataset_name = 'debug_one_obj_100_view.zip'
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         extracted_data_path = '/home/xuyi/Data/renderer/output_debug'

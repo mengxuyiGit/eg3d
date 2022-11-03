@@ -28,6 +28,25 @@ import dnnlib
 
 from ipdb import set_trace as st
 from training.model_pointnet import PointNetfeat
+import PIL.Image
+import numpy as np
+
+def save_image_(img, fname, drange):
+    lo, hi = drange
+    img = np.asarray(img.cpu(), dtype=np.float32)
+    img = (img - lo) * (255 / (hi - lo))
+    img = np.rint(img).clip(0, 255).astype(np.uint8)
+
+    B, C, H, W = img.shape
+
+    img = img.transpose(2,0,3,1)
+    img = img.reshape([H, B*W, C])
+
+    assert C in [1, 3]
+    if C == 1:
+        PIL.Image.fromarray(img[:, :, 0], 'L').save(fname)
+    if C == 3:
+        PIL.Image.fromarray(img, 'RGB').save(fname)
 
 @persistence.persistent_class
 class VolumeGenerator(torch.nn.Module):
@@ -151,9 +170,7 @@ class VolumeGenerator(torch.nn.Module):
         ## already adapted to volume
         #### render 128 directly
         feature_samples, depth_samples, weights_samples = self.renderer(planes, self.decoder, ray_origins, ray_directions, self.rendering_kwargs) # channels last
-        # st()
-        
-
+       
         # Reshape into 'raw' neural-rendered image
         H = W = self.neural_rendering_resolution
         feature_image = feature_samples.permute(0, 2, 1).reshape(N, feature_samples.shape[-1], H, W).contiguous()
@@ -163,7 +180,11 @@ class VolumeGenerator(torch.nn.Module):
         rgb_image = feature_image[:, :3]
         # st()
         if DEBUG_MODE:
+            save_path = 'render_rgb'
+            save_image_(rgb_image.detach().clone(), f"{save_path}.png", drange=[-1,rgb_image.max().item()+0.001])
+            # PIL.Image.fromarray(rgb_image[0].detach().clone().cpu().numpy().transpose(1,2,0), 'RGB').save(f"{save_path}.png")
             sr_image = rgb_image
+            st()
         else:
             sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
         
@@ -220,24 +241,50 @@ class OSGDecoder(torch.nn.Module):
         )
         
         
+    # def forward(self, sampled_features, ray_directions):
+    #     # st() # x.shape
+    #     # Aggregate features
+        
+    #     sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
+        
+    #     if self.use_ray_directions:
+    #         sampled_features = torch.cat([sampled_features, ray_directions], -1)
+
+    #     x = sampled_features
+
+    #     N, M, C = x.shape
+    #     x = x.view(N*M, C)
+
+    #     x = self.net(x)
+    #     x = x.view(N, M, -1)
+       
+    #     rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
+    #     sigma = x[..., 0:1]
+       
+    #     return {'rgb': rgb, 'sigma': sigma}
+
     def forward(self, sampled_features, ray_directions):
         # st() # x.shape
         # Aggregate features
         
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
-        
-        if self.use_ray_directions:
-            sampled_features = torch.cat([sampled_features, ray_directions], -1)
+        # if sampled_features.max() != 0:
+        #     st()
+        # if self.use_ray_directions:
+        #     sampled_features = torch.cat([sampled_features, ray_directions], -1)
 
         x = sampled_features
 
         N, M, C = x.shape
-        x = x.view(N*M, C)
+        # x = x.view(N*M, C)
 
-        x = self.net(x)
-        x = x.view(N, M, -1)
+        # x = self.net(x)
+        # x = x.view(N, M, -1)
+     
+        assert C == 4
        
-        rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
+        # rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
+        rgb = x[..., 1:] # directly take voxel color
         sigma = x[..., 0:1]
        
         return {'rgb': rgb, 'sigma': sigma}

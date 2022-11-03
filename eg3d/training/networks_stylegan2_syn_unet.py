@@ -481,6 +481,37 @@ class SynthesisBlock(torch.nn.Module):
         return f'resolution={self.resolution:d}, architecture={self.architecture:s}'
 
 #----------------------------------------------------------------------------
+from plyfile import PlyData,PlyElement
+import numpy as np
+
+def save_sample_coordinates(points, save_path, color=None, write_text=False):
+    if color != None:
+        pts_color = torch.tensor(color, device=points.device).repeat(points.shape[0],1)
+        points = torch.cat((points, pts_color), dim=-1)
+
+    assert points.shape[-1]==6
+    pts = points.detach().cpu().numpy()
+    n = pts.shape[0]
+    x, y, z = pts[:,0], pts[:,1], pts[:,2]
+
+    pts = (pts*255).astype(int)
+    red, green, blue = pts[:,3], pts[:,4], pts[:,5]
+    # red, green, blue = np.ones_like(pts[:,1]), np.zeros_like(pts[:,1]), np.zeros_like(pts[:,1])
+
+    # connect the proper data structures
+    vertices = np.empty(n, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    vertices['x'] = x.astype('f4')
+    vertices['y'] = y.astype('f4')
+    vertices['z'] = z.astype('f4')
+    vertices['red'] = red.astype('u1')
+    vertices['green'] = green.astype('u1')
+    vertices['blue'] = blue.astype('u1')
+
+    # save as ply
+    ply = PlyData([PlyElement.describe(vertices, 'vertex')], text=False)
+    ply.write(save_path)
+    # print("Ply file saved to:", save_path)
+    return 
 
 # directly modify this to generate volume
 @persistence.persistent_class
@@ -573,22 +604,25 @@ class SynthesisNetwork(torch.nn.Module):
         # # 1. voxelize input pc
         
         B,_,_=pc.shape
+
         _coor, _feature_3d, density_volume, voxel_size = self.voxelize_spconv_sparse_pointnet(
                                                         pc=pc, box_warp=box_warp,grid_size=self.grid_size)
-        _ret = spconv.SparseConvTensor(_feature_3d, _coor.int(), np.array(self.grid_size),
-                                B) # sp_tensor batch = B*V
-        _feature_3d = _ret.dense(channels_first = True).contiguous() # [B, C, X, Y, Z], C=32
+        # _ret = spconv.SparseConvTensor(_feature_3d, _coor.int(), np.array(self.grid_size),
+        #                         B) # sp_tensor batch = B*V
+        # _feature_3d = _ret.dense(channels_first = True).contiguous() # [B, C, X, Y, Z], C=32
         
         
         # # 2. 3D Unet: special: with addtional input ws to concate at the bottle neck so that the upconv part can serve as generator
 
         # 2.1 _feature_3d = self.unet3d(_feature_3d.contiguous()) # 3d CONV takes [B, C, X, Y, Z] as input
         # 2.2 add latent and noises
-        _feature_3d = self.synthesis_unet3d(_feature_3d, ws)
+        # FIXME: open the line below
+        # _feature_3d = self.synthesis_unet3d(_feature_3d, ws)
        
         # st()
-        volume = _feature_3d.permute(0,1,4,3,2)
-        # st()
+        # volume = _feature_3d.permute(0,1,4,3,2)
+        volume = _feature_3d.permute(0,4,3,2,1)
+        # st() # should be color volume with C == 4: 1 sigma, 1: rgb 
         
         return volume
 
@@ -604,6 +638,8 @@ class SynthesisNetwork(torch.nn.Module):
         ######## parameter alignment ######### 
         batch_pcl = pc[...,:3].unsqueeze(1)
         batch_mtl = pc[...,3:].unsqueeze(1)
+        save_sample_coordinates(pc[0,...,:6], 'sample_pc.ply')
+     
         device=batch_pcl.device
         B,V,_,_ = batch_pcl.shape # torch.Size([4, 1, 1500, 9])
         #check box_warp.shape
@@ -624,6 +660,9 @@ class SynthesisNetwork(torch.nn.Module):
         batch_voxel_size = (batch_bbox[:,:,1:]-batch_bbox[:,:,:1])/grid_size
         voxel_size = batch_voxel_size
         batch_xyz_cube_pos = torch.div((batch_pcl-batch_bbox[:,:,:1]), batch_voxel_size, rounding_mode='floor')
+       
+        
+        
         if pointnet_input== 'local_xyz':
             batch_pcl_local = (batch_pcl - batch_bbox[:,:,:1] - batch_xyz_cube_pos*batch_voxel_size) / batch_voxel_size - 0.5
             batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
@@ -688,17 +727,42 @@ class SynthesisNetwork(torch.nn.Module):
         # if feature=='embedding':
         #     processed_cat_pt_fea = self.voxel_embed(cat_pt_fea)
         # elif feature=='pointnet':
-        processed_cat_pt_fea = self.vfe_model(cat_pt_fea) # global pointnet
+        # processed_cat_pt_fea = torch.cat([torch.ones_like(cat_pt_fea[...,0:1]),cat_pt_fea[...,3:6]],-1)
+        # processed_cat_pt_fea = self.vfe_model(cat_pt_fea) # global pointnet
             # st()
 
-        if self.pt_pooling == 'max':
-            pooled_data = torch_scatter.scatter_max(processed_cat_pt_fea, unq_inv, dim=0)[0] # choose the max feature for each grid
-        else: raise NotImplementedError
+        # if self.pt_pooling == 'max':
+        #     pooled_data = torch_scatter.scatter_max(processed_cat_pt_fea, unq_inv, dim=0)[0] # choose the max feature for each grid
+        # else: raise NotImplementedError
+        n_x, n_y, n_z = grid_size
+        dense_feat_volume = torch.zeros([batch_pcl.shape[0],n_x, n_y, n_z, 4]).cuda().to(device)
 
-        if self.fea_compre:
-            processed_pooled_data = self.fea_compression(pooled_data)
-        else:
-            processed_pooled_data = pooled_data
+
+        for i, v_bxyz in enumerate(unq):
+            # print(i,v_bxyz)
+            # v_pts = cat_pt_fea[torch.where((cat_pt_ind==v_bxyz).all(dim=1))[0],:]
+            # if v_pts.shape[0]==1:
+               
+            #     continue
+    
+            _b,_x,_y,_z = v_bxyz
+            # rgb = (v_bxyz[-3:]+0.1)/grid_size*torch.tensor([[0,1,0]], device=grid_size.device) ## as 0~1 rgb: redder --> larger x
+            # if _y < grid_size[0]/2:
+            #     rgb = (v_bxyz[-3:]+0.1)/grid_size*torch.tensor([[0,1,0]], device=grid_size.device)
+            # else:
+            #     rgb =(v_bxyz[-3:]+0.1)/grid_size*torch.tensor([[1,0,0]], device=grid_size.device)
+            # unq_rgb.append(rgb) 
+            # valid_coor.append(v_bxyz[-3:].unsqueeze(0)/grid_size)
+            # st()
+            dense_feat_volume[_b,_x,_y,_z,1:4]= torch.tensor([[0,0.5,1]])
+            dense_feat_volume[_b,_x,_y,_z,0:1]=8 # as sigma # if sigma is 1, the color is very light!
+      
+        processed_pooled_data = dense_feat_volume # hard code, no compression
+
+        # if self.fea_compre:
+        #     processed_pooled_data = self.fea_compression(pooled_data)
+        # else:
+        #     processed_pooled_data = pooled_data
 
         return unq, processed_pooled_data, batch_densities_volumes, voxel_size
 

@@ -71,7 +71,6 @@ def setup_snapshot_image_grid(training_set, random_seed=0):
 
     # Load data.
     images, labels, pc_arrays = zip(*[training_set[i] for i in grid_indices])
-    # st()
     # print('getitem types ---------------------->',type(images[0]), type(labels[0]), type(pc_arrays[0]))
     return (gw, gh), np.stack(images), np.stack(labels), np.stack(pc_arrays)
 
@@ -124,18 +123,21 @@ def save_ply_from_tensor(points, save_path, color=None, write_text=False):
     # print("Ply file saved to:", save_path)
     return 
 
-def save_fetched_data(phase_real_img, phase_real_c, phase_real_pc):
+
+
+def save_fetched_data(phase_real_img, phase_real_c, phase_real_pc, data_idx):
     # print(phase_real_img, phase_real_c, phase_real_pc)
     
     if phase_real_img.dim()>3:
         for i, (img, c, pc) in enumerate(zip(phase_real_img, phase_real_c, phase_real_pc)):
-            save_path = os.path.join("/home/xuyi/Repo/eg3d/try-runs/debug_data", f"data_{i}")
+        # for img, c, pc in zip(phase_real_img, phase_real_c, phase_real_pc):
+            save_path = os.path.join("/home/xuyi/Repo/eg3d/try-runs/debug_data", f"data_{data_idx}_{i}")
             print(save_path)
-            PIL.Image.fromarray(img.detach().clone().cpu().numpy().transpose(1,2,0), 'RGB').save(f"{save_path}.png")
+            PIL.Image.fromarray(img.detach().clone().cpu().numpy().astype(np.uint8).transpose(1,2,0), 'RGB').save(f"{save_path}.png")
             save_ply_from_tensor(pc.detach().clone().cpu(), f"{save_path}.ply")
             print(c)
-        st()
-
+       
+    # st()
     return 
 #----------------------------------------------------------------------------
 
@@ -335,16 +337,20 @@ def training_loop(
     if progress_fn is not None:
         progress_fn(0, total_kimg)
     
-    DEBUG_DATA=False
-
+    DEBUG_DATA=True
+    if DEBUG_DATA:
+        global data_idx
+        data_idx = 0
+        
     while True:
 
         # Fetch training data.
         with torch.autograd.profiler.record_function('data_fetch'):
             phase_real_img, phase_real_c, phase_real_pc = next(training_set_iterator)
-            if DEBUG_DATA:
-                save_fetched_data(phase_real_img, phase_real_c, phase_real_pc)
-                continue
+            # if DEBUG_DATA:
+            #     save_fetched_data(phase_real_img, phase_real_c, phase_real_pc, data_idx)
+            #     data_idx += 1
+            #     # continue
 
             phase_real_img = (phase_real_img.to(device).to(torch.float32) / 127.5 - 1).split(batch_gpu)
             phase_real_c = phase_real_c.to(device).split(batch_gpu)
@@ -359,7 +365,8 @@ def training_loop(
             all_gen_pc = [training_set.get_pointcloud(idx) for idx in gen_indices]
             all_gen_pc = torch.from_numpy(np.stack(all_gen_pc)).pin_memory().to(device)
             all_gen_pc = [phase_gen_pc.split(batch_gpu) for phase_gen_pc in all_gen_pc.split(batch_size)]
-            
+        
+     
 
         # Execute training phases.
         for phase, phase_gen_z, phase_gen_c, phase_gen_pc in zip(phases, all_gen_z, all_gen_c, all_gen_pc):
@@ -374,7 +381,14 @@ def training_loop(
 
             # if rank == 0:
             #     print('############# current phase:', phase, '############')
-            
+
+            if DEBUG_DATA:
+                
+                save_fetched_data((phase_real_img[0].detach().clone() + 1)*127.5, phase_real_c[0], phase_real_pc[0], data_idx)
+                data_idx += 1
+                # continue
+                st()
+
             for real_img, real_c, gen_z, gen_c, gen_pc in zip(phase_real_img, phase_real_c, phase_gen_z, phase_gen_c, phase_gen_pc):
                 loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
             if 'G' in phase:
