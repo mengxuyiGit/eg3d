@@ -39,7 +39,7 @@ GPUS=1
 BATCH_SIZE=1
 
 DROP=True
-L1=False
+L1=True
 # always not use patch
 
 python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \

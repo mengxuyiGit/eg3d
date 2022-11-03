@@ -219,11 +219,13 @@ class DualDiscriminator(torch.nn.Module):
 
     def forward(self, img, c, update_emas=False, **block_kwargs):
 
-        if self.is_conditional_D:
-            img['image'] = torch.cat([img['condition'], img['image']], 1)
-
+        
         image_raw = filtered_resizing(img['image_raw'], size=img['image'].shape[-1], f=self.resample_filter)
-        img = torch.cat([img['image'], image_raw], 1)
+        if self.is_conditional_D:
+            # img['image'] = torch.cat([img['condition'], img['image']], 1)
+            img = torch.cat([img['condition'], img['image'], image_raw], 1)
+        else:
+            img = torch.cat([img['image'], image_raw], 1)
         
 
         _ = update_emas # unused

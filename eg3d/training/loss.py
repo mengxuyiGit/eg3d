@@ -318,7 +318,6 @@ class StyleGAN2Loss(Loss):
 
             with torch.autograd.profiler.record_function('Gmain_forward'):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
-                
 
                 if self.use_patchD:
                     if self.patchD_reg==0:
