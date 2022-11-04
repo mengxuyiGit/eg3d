@@ -362,7 +362,7 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         x = conv61 + self.conv27(conv62)
         if self.use_noise:
-            noise = torch.randn(x.shape, device=x.device, dtype=torch.float32)
+            noise = torch.rand(x.shape, device=x.device, dtype=torch.float32)
             noise = noise*self.noise_strength
             
             x = x.add_(noise.to(x.dtype))
@@ -378,7 +378,7 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         x = conv6 + self.conv17(x)
         if self.use_noise:
-            noise = torch.randn(x.shape, device=x.device)
+            noise = torch.rand(x.shape, device=x.device)
             noise = noise*self.noise_strength
             x = x.add_(noise.to(x.dtype))
         style = self.affine17(ws.narrow(1, w_idx, 1)).permute(0,2,1)
@@ -390,7 +390,7 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         x = conv4 + self.conv7(x)
         if self.use_noise:
-            noise = torch.randn(x.shape, device=x.device)
+            noise = torch.rand(x.shape, device=x.device)
             noise = noise*self.noise_strength
             x = x.add_(noise.to(x.dtype))
         style = self.affine7(ws.narrow(1, w_idx, 1)).permute(0,2,1)
@@ -403,7 +403,7 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         x = conv2 + self.conv9(x)
         if self.use_noise:
-            noise = torch.randn(x.shape, device=x.device)
+            noise = torch.rand(x.shape, device=x.device)
             noise = noise*self.noise_strength
             x = x.add_(noise.to(x.dtype))
         style = self.affine9(ws.narrow(1, w_idx, 1)).permute(0,2,1)
@@ -416,7 +416,7 @@ class Synthesis3DUnet(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         x = conv0 + self.conv11(x)
         if self.use_noise:
             # print("use noise")
-            noise = torch.randn(x.shape, device=x.device)
+            noise = torch.rand(x.shape, device=x.device)
             noise = noise*self.noise_strength
             x = x.add_(noise.to(x.dtype))
         style = self.affine11(ws.narrow(1, w_idx, 1)).permute(0,2,1)

@@ -324,7 +324,6 @@ class StyleGAN2Loss(Loss):
                         loss_Gmain=torch.tensor([0]).to(gen_c)
                     else:
                         if self.discriminator_condition_on_real: # cat with pixel_dropped image
-                            st()
                             gi = gen_img['image']
                             ri = self.drop_out_pixels(gen_gt_img['image'].detach().clone())
                             img = torch.cat([ri, gi], 1)
@@ -611,7 +610,8 @@ class StyleGAN2Loss(Loss):
                         loss_Dreal += torch.tensor([0]).to(gen_c)
                     else:
                         if self.discriminator_condition_on_real: # cat with pixel_dropped image
-                            gi = real_img_tmp_image # this will do reg for image
+                            # gi = real_img_tmp_image # this will do reg for image
+                            gi = real_img['image'] # this will do reg for image
                             ri = self.drop_out_pixels(real_img['image'].detach().clone())
                             img = torch.cat([ri, gi], 1)
                             
