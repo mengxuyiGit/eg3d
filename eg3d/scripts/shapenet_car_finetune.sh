@@ -43,4 +43,4 @@ python train.py --outdir=${BASE_DIR}/try-runs --cfg=abo_dataset --data=${DATA} \
   --noise_strength 1 --snap 1 \
   --discriminator_condition_on_real True --drop_pixel_ratio 0.8 \
   --use_patch True --z_from_pc False \
-  --use_l2 True --l1_reg 100
+  --use_l1 True --l1_reg 100
