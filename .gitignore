@@ -30,3 +30,8 @@ eg3d_results
 
 *runs/
 *ipynb
+*.png
+*.txt
+*.zip
+*.json*
+*tfevents*
