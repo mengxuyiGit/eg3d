@@ -24,7 +24,7 @@ from training.volume import VolumeGenerator
 import clip
 import PIL
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, InterpolationMode
-    
+from training.training_loop import save_fetched_data
 #----------------------------------------------------------------------------
 
 class Loss:
@@ -39,7 +39,10 @@ class StyleGAN2Loss(Loss):
                     use_l2=False, l2_reg=1, use_l1=False, l1_reg=1,
                     use_chamfer=False, chamfer_reg=1,
                     use_patch=False, patch_reg=1,
-                    discriminator_condition_on_real=False, drop_pixel_ratio=0.8):
+                    discriminator_condition_on_real=False, 
+                    drop_pixel_ratio=0.8,
+                    discriminator_condition_on_projection=False, 
+                    ):
         super().__init__()
         self.device             = device
         self.G                  = G
@@ -101,11 +104,12 @@ class StyleGAN2Loss(Loss):
         self.patchD_reg = patch_reg
         self.discriminator_condition_on_real = discriminator_condition_on_real
         self.drop_pixel_ratio  = drop_pixel_ratio
+        self.discriminator_condition_on_projection = discriminator_condition_on_projection
+        assert not (self.discriminator_condition_on_real and self.discriminator_condition_on_projection)
 
-        if self.discriminator_condition_on_real:
+        if self.discriminator_condition_on_real or self.discriminator_condition_on_projection:
             # assert not (self.use_l2 or self.use_l1 or self.use_chamfer or self.use_perception)
             assert not (self.use_l2 or self.use_chamfer or self.use_perception)
-
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
         
@@ -272,14 +276,14 @@ class StyleGAN2Loss(Loss):
         if self.discriminator_condition_on_real:
             ri = self.drop_out_pixels(real_img['image'].detach().clone())
         elif self.discriminator_condition_on_projection:
-            ri = real_img['projection']
+            ri = real_img['projection'].detach().clone()
         else:
             print("Not supported type of condition")
 
         return ri
         
 
-    def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_gt, gen_c, gen_pc, gain, cur_nimg):
+    def accumulate_gradients(self, phase, real_img, real_c, real_proj, gen_z, gen_gt, gen_c, gen_pc, gen_proj, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
         ############# FIXME Oct 25: uncomment below to still enable Greg phase ##################
         if self.G.rendering_kwargs.get('density_reg', 0) == 0:
@@ -309,9 +313,11 @@ class StyleGAN2Loss(Loss):
                 f = torch.arange(-blur_size, blur_size + 1, device=real_img_raw.device).div(blur_sigma).square().neg().exp2()
                 real_img_raw = upfirdn2d.filter2d(real_img_raw, f / f.sum())
 
-        real_img = {'image': real_img, 'image_raw': real_img_raw}
+        real_img = {'image': real_img, 'image_raw': real_img_raw, 'projection': real_proj}
 
-        gen_gt_img = {'image': gen_gt}
+        gen_gt_img = {'image': gen_gt, 'projection': gen_proj}
+        # save_fetched_data((gen_gt.detach().clone() + 1)*127.5, gen_c, gen_pc, (gen_proj.detach().clone() + 1)*127.5, 'gen')
+        # st()
 
         # Gmain: Maximize logits for generated images.
         if phase in ['Gmain', 'Gboth']:
@@ -327,7 +333,10 @@ class StyleGAN2Loss(Loss):
                             gi = gen_img['image']
                             ri = self.drop_out_pixels(gen_gt_img['image'].detach().clone())
                             img = torch.cat([ri, gi], 1)
-                            
+                        elif self.discriminator_condition_on_projection: 
+                            gi = gen_img['image']
+                            ri = gen_gt_img['projection'].detach().clone()
+                            img = torch.cat([ri, gi], 1)
                         else: 
                             img = gen_img['image']
                         
@@ -341,6 +350,7 @@ class StyleGAN2Loss(Loss):
                 else:
                     if self.D.is_conditional_D: # cat with pixel_dropped image
                         gen_img['condition']=self.get_condition(gen_gt_img)
+
 
                     gen_logits = self.run_D(gen_img, gen_c,  blur_sigma=blur_sigma)
                     training_stats.report('Loss/scores/fake', gen_logits)

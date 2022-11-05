@@ -31,6 +31,7 @@ from metrics import metric_main
 from camera_utils import LookAtPoseSampler
 from training.crosssection_utils import sample_cross_section
 from ipdb import set_trace as st
+from plyfile import PlyData,PlyElement
 #----------------------------------------------------------------------------
 
 def setup_snapshot_image_grid(training_set, random_seed=0):
@@ -237,11 +238,11 @@ def training_loop(
         from training.patch_discriminator import PatchDiscriminator
         if isinstance(D, PatchDiscriminator):
             img_d = img['image']
-            if loss_kwargs.discriminator_condition_on_real:
+            if loss_kwargs.discriminator_condition_on_real or loss_kwargs.discriminator_condition_on_projection:
                 img_d = torch.cat([img_d, img_d], 1) # [B,6,H,W]
             misc.print_module_summary(D, [img_d, True])
         else:
-            if loss_kwargs.discriminator_condition_on_real:
+            if loss_kwargs.discriminator_condition_on_real or loss_kwargs.discriminator_condition_on_projection:
                 img['condition']=torch.zeros_like(img['image']) # [B,6,H,W]
             misc.print_module_summary(D, [img, c])
 
@@ -399,7 +400,7 @@ def training_loop(
             #     st()
 
             for real_img, real_c, real_proj, gen_z, gen_gt, gen_c, gen_pc, gen_proj in zip(phase_real_img, phase_real_c, phase_real_proj, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc, phase_gen_proj):
-                loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_gt=gen_gt, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
+                loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, real_proj=real_proj, gen_z=gen_z, gen_gt=gen_gt, gen_c=gen_c, gen_pc=gen_pc, gen_proj=gen_proj, gain=phase.interval, cur_nimg=cur_nimg)
                 
             if 'G' in phase:
                 st() # check patchD
