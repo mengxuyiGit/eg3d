@@ -32,6 +32,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str)
     parser.add_argument("--max_images", type=int, default=None)
+    parser.add_argument("--split", type=str)
+    parser.add_argument("--pc_fbase", type=str)
     args = parser.parse_args()
 
     # Parse cameras
@@ -39,7 +41,9 @@ if __name__ == '__main__':
     cameras = {}
 
     blender2opencv = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
-    w, h = 512, 512
+    # w, h = 512, 512
+    w, h = 128, 128
+
 
     #### this is for directly listing 
     # for scene_folder_path in list_recursive(dataset_path):
@@ -48,17 +52,26 @@ if __name__ == '__main__':
     #### this is using predefined list, to avoid folders that the datageneration is not complete
     all_data = []
     resolution = 128
-    for split in ['train', 'val']:
+    # for split in ['train', 'val']:
         # with open(os.path.join(dataset_path, 'meta', f'abo_{resolution}_{split}.txt')) as f:
-        with open(os.path.join(dataset_path, 'meta', f'debug_2048_{resolution}_{split}.txt')) as f:
+        # with open(os.path.join(dataset_path, 'meta', f'debug_2048_{resolution}_{split}.txt')) as f:
+    for txt_f in os.listdir(os.path.join(dataset_path, 'meta')):
+        if args.split not in txt_f: continue
+        with open(os.path.join(dataset_path, 'meta', txt_f)) as f:
             scans = [line.rstrip() for line in f.readlines()]
             all_data += scans
-    print(len(all_data), all_data)
+    # print(len(all_data), all_data)
+    print(len(all_data))
+  
+
+    pc_fbase = args.pc_fbase
+    
+
     for scene_folder_path_rel in all_data:
         scene_folder_path = os.path.join(dataset_path, scene_folder_path_rel)
         # st() # the sibling folder with rgb should be mesh>: no, only intrinsics and pose
 
-        pointcloud_csv = os.path.join(scene_folder_path,'sample', f"pc.csv")
+        pointcloud_csv = os.path.join(scene_folder_path,'sample', pc_fbase)
         assert os.path.isfile(pointcloud_csv)
         pc_relative_path = os.path.relpath(pointcloud_csv, dataset_path)
         # print(pc_relative_path)
@@ -99,11 +112,13 @@ if __name__ == '__main__':
             # if DEBUG:
             #     break
     
-    with open(os.path.join(dataset_path, 'cameras.json'), 'w') as outfile:
+    # with open(os.path.join(dataset_path, 'cameras.json'), 'w') as outfile:
+    with open(os.path.join('/home/xuyi/Repo/eg3d/dataset_preprocessing/abo', 'cameras.json'), 'w') as outfile:
         json.dump(cameras, outfile, indent=4)
 
 
-    camera_dataset_file = os.path.join(args.source, 'cameras.json')
+    # camera_dataset_file = os.path.join(args.source, 'cameras.json')
+    camera_dataset_file = os.path.join('/home/xuyi/Repo/eg3d/dataset_preprocessing/abo', 'cameras.json')
 
     with open(camera_dataset_file, "r") as f:
         cameras = json.load(f) # same camera file as saved above
@@ -126,6 +141,7 @@ if __name__ == '__main__':
     # print(dataset)
     # check cameras/dataset
 
-    with open(os.path.join(args.source, 'dataset.json'), "w") as f:
+    # with open(os.path.join(args.source, 'dataset.json'), "w") as f:
+    with open(os.path.join('/home/xuyi/Repo/eg3d/dataset_preprocessing/abo', 'dataset.json'), "w") as f:
         json.dump(dataset, f, indent=4)
         
