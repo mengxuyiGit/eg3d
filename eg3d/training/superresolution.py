@@ -108,7 +108,9 @@ class SuperresolutionHybrid2X(torch.nn.Module):
         self.register_buffer('resample_filter', upfirdn2d.setup_filter([1,3,3,1]))
 
     def forward(self, rgb, x, ws, **block_kwargs):
-        ws = ws[:, -1:, :].repeat(1, 3, 1)
+        if ws is not None:
+            ws = ws[:, -1:, :].repeat(1, 3, 1) 
+
 
         if x.shape[-1] != self.input_resolution:
             x = torch.nn.functional.interpolate(x, size=(self.input_resolution, self.input_resolution),
@@ -209,10 +211,64 @@ class SynthesisBlockNoUp(torch.nn.Module):
 
     def forward(self, x, img, ws, force_fp32=False, fused_modconv=None, update_emas=False, **layer_kwargs):
         _ = update_emas # unused
+        if ws is None:
+            return self.forward_without_ws(x, img, ws, force_fp32=False, fused_modconv=None, update_emas=False, **layer_kwargs)
+
         misc.assert_shape(ws, [None, self.num_conv + self.num_torgb, self.w_dim])
         w_iter = iter(ws.unbind(dim=1))
         if ws.device.type != 'cuda':
             force_fp32 = True
+        dtype = torch.float16 if self.use_fp16 and not force_fp32 else torch.float32
+        memory_format = torch.channels_last if self.channels_last and not force_fp32 else torch.contiguous_format
+        if fused_modconv is None:
+            fused_modconv = self.fused_modconv_default
+        if fused_modconv == 'inference_only':
+            fused_modconv = (not self.training)
+
+        # Input.
+        if self.in_channels == 0:
+            x = self.const.to(dtype=dtype, memory_format=memory_format)
+            x = x.unsqueeze(0).repeat([ws.shape[0], 1, 1, 1])
+        else:
+            misc.assert_shape(x, [None, self.in_channels, self.resolution, self.resolution])
+            x = x.to(dtype=dtype, memory_format=memory_format)
+
+        # Main layers.
+        if self.in_channels == 0:
+            x = self.conv1(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+        elif self.architecture == 'resnet':
+            y = self.skip(x, gain=np.sqrt(0.5))
+            x = self.conv0(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+            x = self.conv1(x, next(w_iter), fused_modconv=fused_modconv, gain=np.sqrt(0.5), **layer_kwargs)
+            x = y.add_(x)
+        else:
+            x = self.conv0(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+            x = self.conv1(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+
+        # ToRGB.
+        # if img is not None:
+            # misc.assert_shape(img, [None, self.img_channels, self.resolution // 2, self.resolution // 2])
+            # img = upfirdn2d.upsample2d(img, self.resample_filter)
+        if self.is_last or self.architecture == 'skip':
+            y = self.torgb(x, next(w_iter), fused_modconv=fused_modconv)
+            y = y.to(dtype=torch.float32, memory_format=torch.contiguous_format)
+            img = img.add_(y) if img is not None else y
+
+        assert x.dtype == dtype
+        assert img is None or img.dtype == torch.float32
+        return x, img
+    
+    def forward_without_ws(self, x, img, ws, force_fp32=False, fused_modconv=None, update_emas=False, **layer_kwargs):
+        # _ = update_emas # unused
+        # if ws is None:
+        #     return self.forward_without_ws()
+
+        # misc.assert_shape(ws, [None, self.num_conv + self.num_torgb, self.w_dim])
+
+        w_iter = iter([None]*3)
+
+        # if ws.device.type != 'cuda':
+        force_fp32 = False
         dtype = torch.float16 if self.use_fp16 and not force_fp32 else torch.float32
         memory_format = torch.channels_last if self.channels_last and not force_fp32 else torch.contiguous_format
         if fused_modconv is None:

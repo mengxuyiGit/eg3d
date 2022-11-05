@@ -434,7 +434,8 @@ class StyleGAN2Loss(Loss):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
                     cutoff = torch.where(torch.rand([], device=ws.device) < self.style_mixing_prob, cutoff, torch.full_like(cutoff, ws.shape[1]))
                     ws[:, cutoff:] = self.G.mapping(torch.randn_like(z), c, update_emas=False)[:, cutoff:]
-            initial_coordinates = torch.rand((ws.shape[0], 1000, 3), device=ws.device) * 2 - 1
+            # initial_coordinates = torch.rand((ws.shape[0], 1000, 3), device=ws.device) * 2 - 1
+            initial_coordinates = torch.rand((gen_z.shape[0], 1000, 3), device=gen_z.device) * 2 - 1 # hard-code to not use ws
             perturbed_coordinates = initial_coordinates + torch.randn_like(initial_coordinates) * self.G.rendering_kwargs['density_reg_p_dist']
             all_coordinates = torch.cat([initial_coordinates, perturbed_coordinates], dim=1)
             #### FIXME: the coordinates fed into mixed_sample are both random, why is this?????
@@ -464,7 +465,8 @@ class StyleGAN2Loss(Loss):
             else:
                 ws = self.G.mapping(gen_z, c_gen_conditioning, None, update_emas=False)
 
-            initial_coordinates = torch.rand((ws.shape[0], 2000, 3), device=ws.device) * 2 - 1 # Front
+            # initial_coordinates = torch.rand((ws.shape[0], 2000, 3), device=ws.device) * 2 - 1 # Front
+            initial_coordinates = torch.rand((gen_z.shape[0], 2000, 3), device=gen_z.device) * 2 - 1 # Front
 
             perturbed_coordinates = initial_coordinates + torch.tensor([0, 0, -1], device=ws.device) * (1/256) * self.G.rendering_kwargs['box_warp'] # Behind
             all_coordinates = torch.cat([initial_coordinates, perturbed_coordinates], dim=1)
@@ -498,7 +500,7 @@ class StyleGAN2Loss(Loss):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
                     cutoff = torch.where(torch.rand([], device=ws.device) < self.style_mixing_prob, cutoff, torch.full_like(cutoff, ws.shape[1]))
                     ws[:, cutoff:] = self.G.mapping(torch.randn_like(z), c, update_emas=False)[:, cutoff:]
-            initial_coordinates = torch.rand((ws.shape[0], 1000, 3), device=ws.device) * 2 - 1
+            initial_coordinates = torch.rand((gen_z.shape[0], 1000, 3), device=gen_z.device) * 2 - 1
             perturbed_coordinates = initial_coordinates + torch.randn_like(initial_coordinates) * (1/256) * self.G.rendering_kwargs['box_warp']
             all_coordinates = torch.cat([initial_coordinates, perturbed_coordinates], dim=1)
             if isinstance(self.G, VolumeGenerator):
@@ -524,7 +526,7 @@ class StyleGAN2Loss(Loss):
 
             ws = self.G.mapping(gen_z, c_gen_conditioning, update_emas=False)
 
-            initial_coordinates = torch.rand((ws.shape[0], 2000, 3), device=ws.device) * 2 - 1 # Front
+            initial_coordinates = torch.rand((gen_z.shape[0], 2000, 3), device=gen_z.device) * 2 - 1 # Front
 
             perturbed_coordinates = initial_coordinates + torch.tensor([0, 0, -1], device=ws.device) * (1/256) * self.G.rendering_kwargs['box_warp'] # Behind
             all_coordinates = torch.cat([initial_coordinates, perturbed_coordinates], dim=1)
@@ -554,7 +556,7 @@ class StyleGAN2Loss(Loss):
                     cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
                     cutoff = torch.where(torch.rand([], device=ws.device) < self.style_mixing_prob, cutoff, torch.full_like(cutoff, ws.shape[1]))
                     ws[:, cutoff:] = self.G.mapping(torch.randn_like(z), c, update_emas=False)[:, cutoff:]
-            initial_coordinates = torch.rand((ws.shape[0], 1000, 3), device=ws.device) * 2 - 1
+            initial_coordinates = torch.rand((gen_z.shape[0], 1000, 3), device=gen_z.device) * 2 - 1
             perturbed_coordinates = initial_coordinates + torch.randn_like(initial_coordinates) * (1/256) * self.G.rendering_kwargs['box_warp']
             all_coordinates = torch.cat([initial_coordinates, perturbed_coordinates], dim=1)
             if isinstance(self.G, VolumeGenerator):
