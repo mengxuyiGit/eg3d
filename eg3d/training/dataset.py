@@ -114,7 +114,7 @@ class Dataset(torch.utils.data.Dataset):
                 assert projection.ndim == 3 # CHW
                 projection = projection[:, :, ::-1]
         except:
-            st()
+            # st()
             projection = np.empty([1,0])
 
         return image.copy(), self.get_label(idx), pointcloud.copy(), projection.copy()
@@ -130,13 +130,16 @@ class Dataset(torch.utils.data.Dataset):
         return image.copy()
     
     def get_projection(self, idx):
-        image = self._load_raw_projection(self._raw_idx[idx])
-        assert isinstance(image, np.ndarray)
-        assert list(image.shape) == self.image_shape
-        assert image.dtype == np.uint8
-        if self._xflip[idx]:
-            assert image.ndim == 3 # CHW
-            image = image[:, :, ::-1]
+        try:
+            image = self._load_raw_projection(self._raw_idx[idx])
+            assert isinstance(image, np.ndarray)
+            assert list(image.shape) == self.image_shape
+            assert image.dtype == np.uint8
+            if self._xflip[idx]:
+                assert image.ndim == 3 # CHW
+                image = image[:, :, ::-1]
+        except:
+            image = np.empty([1,0])
         return image.copy()
 
     def get_label(self, idx):
@@ -231,7 +234,7 @@ class ImageFolderDataset(Dataset):
         self._image_fnames = sorted(fname for fname in self._all_fnames if (self._file_ext(fname) in PIL.Image.EXTENSION and 'proj' not in fname))
         self._pc_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) == '.csv')
         self._proj_fnames = sorted(fname for fname in self._all_fnames if (self._file_ext(fname) in PIL.Image.EXTENSION and 'proj' in fname))
-        assert len(self._proj_fnames) == len(self._pc_fnames) == len(self._image_fnames)
+        assert len(self._proj_fnames) == len(self._pc_fnames) == len(self._image_fnames) or len(self._proj_fnames)==0
 
         if len(self._image_fnames) == 0:
             raise IOError('No image files found in the specified path')
