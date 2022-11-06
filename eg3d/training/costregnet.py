@@ -566,7 +566,7 @@ class Synthesis3DUnet_no_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         x = conv0 + self.conv11(x)
         if self.use_noise:
-            # print("use noise")
+            print("use noise")
             noise = torch.rand(x.shape, device=x.device)
             noise = noise*self.noise_strength
             x = x.add_(noise.to(x.dtype))
