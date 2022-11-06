@@ -159,15 +159,15 @@ class StyleGAN2Loss(Loss):
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
                 
 
-                # # L1 loss on the whole gen image
-                # if self.use_l1:
-                #     l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=gen_gt_img)
-                #     # l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
-                #     l1_loss = torch.mean(l1_loss) * self.l1_reg
-                #     loss_Gmain = l1_loss
-                #     print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
+                # L1 loss on the whole gen image
+                if self.use_l1:
+                    l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=gen_gt_img)
+                    # l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
+                    l1_loss = torch.mean(l1_loss) * self.l1_reg
+                    loss_Gmain = l1_loss
+                    print(f"---------loss_l1\t\t(x{self.l1_reg}): {(l1_loss).sum().item()}-------------")
 
-                #     training_stats.report('Loss/G/l1_loss_whole', l1_loss)
+                    training_stats.report('Loss/G/l1_loss_whole', l1_loss)
 
                 # L2 loss on the whole gen image
                 if self.use_l2:
