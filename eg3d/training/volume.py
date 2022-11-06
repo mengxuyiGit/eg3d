@@ -239,6 +239,7 @@ class OSGDecoder(torch.nn.Module):
             torch.nn.Softplus(),
             FullyConnectedLayer(self.hidden_dim, 1 + options['decoder_output_dim'], lr_multiplier=options['decoder_lr_mul'])
         )
+        self.sigma_sp = torch.nn.Softplus()
         
         
     def forward(self, sampled_features, ray_directions):
@@ -259,7 +260,7 @@ class OSGDecoder(torch.nn.Module):
         x = x.view(N, M, -1)
        
         rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
-        sigma = x[..., 0:1]
+        sigma = self.sigma_sp(x[..., 0:1]-1)
        
         return {'rgb': rgb, 'sigma': sigma}
 
