@@ -128,23 +128,30 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     
     if cfg == 'ABO':
         # st()
-        _ = G.synthesis(ws[:1], c[:1], pc=PC_FILES[:1])
-        tmp_ws, tmpc, tmppc = ws[:1], c[:1], PC_FILES[:1]
+        try:
+            _ = G.synthesis(ws[:1], c[:1], pc=PC_FILES[:1])
+            tmp_ws, tmpc, tmppc = ws[:1], c[:1], PC_FILES[:1]
+        except:
+            _ = G.synthesis(ws, c[:1], pc=PC_FILES[:1])
+            tmp_ws, tmpc, tmppc = ws, c[:1], PC_FILES[:1]
     else:
         # st()
         _ = G.synthesis(ws[:1], c[:1]) # warm up
-    ws = ws.reshape(grid_h, grid_w, num_keyframes, *ws.shape[1:])
+    try:
+        ws = ws.reshape(grid_h, grid_w, num_keyframes, *ws.shape[1:])
+    except:
+        pass
 
-    # Interpolation.
-    grid = []
-    for yi in range(grid_h):
-        row = []
-        for xi in range(grid_w):
-            x = np.arange(-num_keyframes * wraps, num_keyframes * (wraps + 1))
-            y = np.tile(ws[yi][xi].detach().cpu().numpy(), [wraps * 2 + 1, 1, 1])
-            interp = scipy.interpolate.interp1d(x, y, kind=kind, axis=0)
-            row.append(interp)
-        grid.append(row)
+    # # Interpolation.
+    # grid = []
+    # for yi in range(grid_h):
+    #     row = []
+    #     for xi in range(grid_w):
+    #         x = np.arange(-num_keyframes * wraps, num_keyframes * (wraps + 1))
+    #         y = np.tile(ws[yi][xi].detach().cpu().numpy(), [wraps * 2 + 1, 1, 1])
+    #         interp = scipy.interpolate.interp1d(x, y, kind=kind, axis=0)
+    #         row.append(interp)
+    #     grid.append(row)
 
     # Render video.
     max_batch = 10000000
@@ -158,8 +165,8 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     
 
     all_poses = []
-    # for frame_idx in tqdm(range(num_keyframes * w_frames)):
-    for frame_idx in range(num_keyframes * w_frames):
+    for frame_idx in tqdm(range(num_keyframes * w_frames)):
+    # for frame_idx in range(num_keyframes * w_frames):
         imgs = []
         for yi in range(grid_h):
             for xi in range(grid_w):
@@ -190,8 +197,8 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
                 c = torch.cat([cam2world_pose.reshape(-1, 16), intrinsics.reshape(-1, 9)], 1)
                 # st()
 
-                interp = grid[yi][xi]
-                w = torch.from_numpy(interp(frame_idx / w_frames).astype(np.float32)).to(device)
+                # interp = grid[yi][xi]
+                # w = torch.from_numpy(interp(frame_idx / w_frames).astype(np.float32)).to(device)
 
                 entangle = 'camera'
                 if entangle == 'conditioning':
@@ -204,13 +211,15 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
                 elif entangle == 'camera':
                     if cfg == 'ABO':
                         # w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[:1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
-                        w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
+                        # w_pc = G.mapping(z=None, c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1], truncation_psi=psi, truncation_cutoff=truncation_cutoff)
                         # print("condition w on pc")
                         # print(w_pc.shape)
                         # print(pc_idx)
+                        pass
                     
                     # img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[0:1].to(tmppc), noise_mode='const')[image_mode][0]
-                    img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1].to(tmppc), noise_mode='const')[image_mode][0]
+                    # img = G.synthesis(ws=w_pc.to(tmp_ws), c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1].to(tmppc), noise_mode='const')[image_mode][0]
+                    img = G.synthesis(ws=None, c=c[0:1].to(tmpc), pc=PC_FILES[pc_idx:pc_idx+1].to(tmppc), noise_mode='const')[image_mode][0]
                     # print("xi", xi)
                     # st()
                     # print(xi, yi, tmp_ws.shape, tmpc.shape, tmppc.shape)
