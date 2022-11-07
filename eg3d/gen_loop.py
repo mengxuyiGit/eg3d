@@ -551,7 +551,8 @@ def inference_loop(
                     for fid_gen, fid_gt in zip(gen_output['image'], gen_gt):
                         save_image_(fid_gen, os.path.join(fid_dir_gen, f'{fid_pair_idx:06d}_gen_rgb.png'), drange=[-1,1])
                         save_image_(fid_gt, os.path.join(fid_dir_gt, f'{fid_pair_idx:06d}_gt_rgb.png'), drange=[-1,1])
-                        save_image_(torch.cat([fid_gt, fid_gen], dim=-1), os.path.join(fid_dir_cat, f'{fid_pair_idx:06d}_gt_rgb.png'), drange=[-1,1])
+                        if fid_pair_idx%5==0:
+                            save_image_(torch.cat([fid_gt, fid_gen], dim=-1), os.path.join(fid_dir_cat, f'{fid_pair_idx:06d}_gt_rgb.png'), drange=[-1,1])
                         fid_pair_idx += 1
                         # print(f"FID pair {fid_pair_idx} saved!")
                     
