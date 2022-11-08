@@ -136,7 +136,8 @@ class VolumeGenerator(torch.nn.Module):
         return self.backbone.mapping(z, c * self.rendering_kwargs.get('c_scale', 0), truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
 
     def synthesis(self, ws, c, pc=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
-       
+        print("synthesis", self.log_idx)
+        self.log_idx += 1
         cam2world_matrix = c[:, :16].view(-1, 4, 4)
         intrinsics = c[:, 16:25].view(-1, 3, 3)
         DEBUG_MODE = True
@@ -215,6 +216,7 @@ class VolumeGenerator(torch.nn.Module):
 
     def sample_mixed(self, coordinates, directions, ws, pc=None, box_warp=None, truncation_psi=1, truncation_cutoff=None, update_emas=False, **synthesis_kwargs):
         # Same as sample, but expects latent vectors 'ws' instead of Gaussian noise 'z'
+        st()
         planes = self.backbone.synthesis(ws, pc=pc, box_warp=box_warp, update_emas = update_emas, **synthesis_kwargs)
         if isinstance(planes, tuple):
             planes = list(planes)
@@ -227,7 +229,7 @@ class VolumeGenerator(torch.nn.Module):
     def forward(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
         if pc.shape[-1] != 9 and pc.shape[-2]%1024 != 0:
             st()
-
+        # st()
         # self.log_idx= self.log_idx +1
         # print('foward in Volumegenerator', self.log_idx)
 
@@ -244,6 +246,7 @@ class OSGDecoder(torch.nn.Module):
         self.hidden_dim = 64
         # if n_features != 8:
         #     st()
+        self.idx=0
 
         self.use_ray_directions = options['use_ray_directions']
         if self.use_ray_directions:
@@ -260,6 +263,10 @@ class OSGDecoder(torch.nn.Module):
         
     def forward(self, sampled_features, ray_directions):
         # st() # x.shape
+        print("decoder!", self.idx)
+        self.idx+=1
+        if self.idx>100:
+            st()
         # Aggregate features
         
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
@@ -288,6 +295,7 @@ class OSGDecoder_deeper(torch.nn.Module):
         W=32
         D=3
         self.skips = [1]
+        
       
         self.use_ray_directions = options['use_ray_directions']
         self.pts_bias = nn.Linear(n_features, W)

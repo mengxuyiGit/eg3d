@@ -231,7 +231,7 @@ class VolumeImportanceRenderer(torch.nn.Module):
             sampled_features = sample_from_volume(planes, sample_coordinates, padding_mode='zeros', box_warp=options['box_warp'])
         # st() # align sampled_features.shape and sampled_features.shape
     
-    
+        
         out = decoder(sampled_features, sample_directions)
     
         if options.get('density_noise', 0) > 0:

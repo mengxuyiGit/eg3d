@@ -113,6 +113,7 @@ class StyleGAN2Loss(Loss):
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
         
         ws = None
+   
         if isinstance(self.G, VolumeGenerator):
             gen_output = self.G.synthesis(ws, c, pc, neural_rendering_resolution=neural_rendering_resolution, update_emas=update_emas)
         else:
@@ -157,7 +158,7 @@ class StyleGAN2Loss(Loss):
             with torch.autograd.profiler.record_function('Gmain_forward'):
                
                 gen_img, _gen_ws = self.run_G(gen_z, gen_c, gen_pc, swapping_prob=swapping_prob, neural_rendering_resolution=neural_rendering_resolution)
-                
+                # st()
 
                 # L1 loss on the whole gen image
                 if self.use_l1:
@@ -181,6 +182,8 @@ class StyleGAN2Loss(Loss):
                     
                 with torch.autograd.profiler.record_function('Gmain_backward'):
                     loss_Gmain.mean().mul(gain).backward()
+                    del loss_Gmain
+                    del gen_img
                     # for name, param in self.G.backbone.synthesis.synthesis_unet3d.named_parameters():
          
                     #     if param.requires_grad:

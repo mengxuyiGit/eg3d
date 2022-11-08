@@ -37,8 +37,10 @@ from plyfile import PlyData,PlyElement
 
 def setup_snapshot_image_grid(training_set, random_seed=0):
     rnd = np.random.RandomState(random_seed)
-    gw = np.clip(7680 // training_set.image_shape[2], 7, 32)
-    gh = np.clip(4320 // training_set.image_shape[1], 4, 32)
+    # gw = np.clip(7680 // training_set.image_shape[2], 7, 32)
+    # gh = np.clip(4320 // training_set.image_shape[1], 4, 32)
+    gw = np.clip(7680 // training_set.image_shape[2], 7, 10)
+    gh = np.clip(4320 // training_set.image_shape[1], 4, 10)
 
     # No labels => show random subset of training samples.
     if not training_set.has_labels:
@@ -342,9 +344,10 @@ def training_loop(
     if DEBUG_DATA:
         global data_idx
         data_idx = 0
-        
-    while True:
+    
 
+    while True:
+       
         # Fetch training data.
         with torch.autograd.profiler.record_function('data_fetch'):
             phase_real_img, phase_real_c, phase_real_pc, phase_real_proj = next(training_set_iterator)
@@ -408,8 +411,7 @@ def training_loop(
 
             for real_img, real_c, real_proj, gen_z, gen_gt, gen_c, gen_pc, gen_proj in zip(phase_real_img, phase_real_c, phase_real_proj, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc, phase_gen_proj):
                 loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_gt=gen_gt, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
-                print(phase)
-                st()
+                
             if 'G' in phase:
                 st() # check patchD
             phase.module.requires_grad_(False)
@@ -488,10 +490,20 @@ def training_loop(
                 print('Aborting...')
 
         # Save image snapshot.
+        idx=0
+        print("zip(grid_z, grid_c, grid_pc", len(grid_z), len(grid_c), len(grid_pc))
         if (rank == 0) and (image_snapshot_ticks is not None) and (done or cur_tick % image_snapshot_ticks == 0):
             if all(x != 0 for x in pointclouds.shape):
                 # st()
-                out = [G_ema(z=z, c=c, pc=pc, noise_mode='const') for z, c, pc in zip(grid_z, grid_c, grid_pc)]
+
+                # print('G_ema',idx)
+                # idx+=1
+                out=[]
+                for z, c, pc in zip(grid_z, grid_c, grid_pc):
+                    print('G_ema',idx)
+                    idx+=1
+                    out.append(G_ema(z=z, c=c, pc=pc, noise_mode='const'))
+                # out = [G_ema(z=z, c=c, pc=pc, noise_mode='const') for z, c, pc in zip(grid_z, grid_c, grid_pc)]
             else:
                 st()
                 out = [G_ema(z=z, c=c, noise_mode='const') for z, c in zip(grid_z, grid_c)]
@@ -545,8 +557,8 @@ def training_loop(
                     pickle.dump(snapshot_data, f)
 
         # Evaluate metrics.
-        if (snapshot_data is not None) and (len(metrics) > 0):
-        # if (snapshot_data is not None) and (len(metrics) > 0) and batch_idx % 10 ==0:
+        # if (snapshot_data is not None) and (len(metrics) > 0)  :
+        if (snapshot_data is not None) and (len(metrics) > 0) and batch_idx % 10 ==9:
             if rank == 0:
                 print(run_dir)
                 print('Evaluating metrics...')
