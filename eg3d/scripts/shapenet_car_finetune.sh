@@ -30,9 +30,10 @@ BASE_DIR=/xuyi-fast-vol/Repo-fast/eg3d
 # DATA=${BASE_DIR}/dataset_preprocessing/shapenet_cars/cars_128_copy.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_copy.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed.zip
-DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed_white.zip
+# DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_128_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white.zip
 # DATA=${BASE_DIR}/dataset_preprocessing/abo/abo_512_completed_white_small.zip
+
 DATA=${BASE_DIR}/dataset_preprocessing/abo/debug_2048_128_completed_white.zip
 # CUDA_VISIBLE_DEVICES=[1]
 GPUS=1

@@ -80,28 +80,47 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
     
     # filter out 'depth' and 'normal'
     # input_images = [ f for f in input_images if ('depth' not in f) and ('normal' not in f) and ('Image' not in f)]
-    input_images = [ f for f in input_images if ('render/r' in f)]
-    # print(input_images)
+
+    input_images = [ f for f in input_images if ('render/r_' in f)]
+
+    # -----------only load the selected images in the txt file---------------
+    all_data=[]
+    for txt_f in os.listdir(os.path.join(source_dir, 'meta')):
+        if SPLIT not in txt_f: continue
+        with open(os.path.join(source_dir, 'meta', txt_f)) as f:
+            scans = [line.rstrip() for line in f.readlines()]
+            all_data += scans
+    # print(len(all_data), all_data)
+    print(len(all_data))
+    input_images = [f for f in input_images if f.split(os.sep)[-3] in all_data]
+    # ----------------------------------------------------------------------------------
+ 
 
     # Load labels.
     labels = {}
-    meta_fname = os.path.join(source_dir, 'dataset.json')
+    meta_fname = os.path.join('/home/xuyi/Repo/eg3d/dataset_preprocessing/abo', 'dataset.json')
+    # meta_fname = os.path.join(source_dir, 'dataset.json')
     if os.path.isfile(meta_fname):
         with open(meta_fname, 'r') as file:
             labels = json.load(file)['labels']
 
             if labels is not None:
                 try:
+
+                  
                     # pc_rel_paths = { x[0]: x[2] for x in labels }
-                    # pc_rel_paths = { os.path.relpath(x[0], '../output_cutter'): x[2] for x in labels }
-                    pc_rel_paths = { os.path.relpath(x[0], '../abo'): x[2] for x in labels }
+                    # pc_rel_paths = { os.path.relpath(x[0], '../output_cutter') : x[2] for x in labels }
+                    pc_rel_paths = { os.path.join(x[0].split(os.sep)[-3],x[0].split(os.sep)[-2],x[0].split(os.sep)[-1]): x[2] for x in labels}
+         
+                    
+
                     # print(pc_rel_paths)
                 except:
                     print("No pointcloud input in dataset")
                     pc_rel_paths = {}
-                # labels = { x[0]: x[1] for x in labels }
-                # labels = { os.path.relpath(x[0], '../output_cutter'): x[1] for x in labels }
-                labels = { os.path.relpath(x[0], '../abo'): x[1] for x in labels }
+
+                labels = {os.path.join(x[0].split(os.sep)[-3],x[0].split(os.sep)[-2],x[0].split(os.sep)[-1]) : x[1] for x in labels }
+
                 
             else:
                 labels = {}
@@ -120,16 +139,16 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             if READ_POINTCLOUD:
       
                 pc_rel = pc_rel_paths.get(arch_fname[:-4])
-                # print(arch_fname[:-4])
+
                 if pc_rel != None:
                     pc_fname = os.path.join(source_dir, pc_rel)
                     pc_df = pd.read_csv(pc_fname)
                     pc_array = pc_df[['x','y','z','r','g','b','a', 'metallic','roughness']].values.astype(np.float32)
-                    # st()
                     # reda pc csv
                     # save as np array
 
                     if pc_array.shape[0] > NUM_POINTS: # poisson sampling
+                        st()
                         n_sample_poisson = NUM_POINTS
                         particle_pos = pc_array[:, :3]
                         poisson_idx = pcu.downsample_point_cloud_poisson_disk(particle_pos, num_samples=n_sample_poisson)
@@ -140,10 +159,29 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
                         # particle_pos = particle_pos[poisson_idx]
                         pc_array = pc_array[poisson_idx]    
                 else:
-                    # print("continue")
+
+                    print("continue")
+                    print(arch_fname[:-4])
+
                     continue
             else:
                 pc_array=None
+            
+            if READ_PROJECTION:
+      
+                # proj_rel = pc_rel_paths.get(arch_fname[:-4])
+                proj_rel = arch_fname.replace('r_', '128_1024/pc_1024_')
+               
+                if proj_rel != None:
+                    proj_fname = os.path.join(source_dir, proj_rel)
+                    proj_img = np.array(PIL.Image.open(proj_fname))
+                
+                else:
+                    print("projection not exist, continue")
+                    print(proj_fname[:-4])
+                    continue
+            else:
+                proj_img=None
 
             
             arch_fname = os.path.splitext(arch_fname)[0]
@@ -152,7 +190,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             if label_get != None:
                 # st()
                 # print('fname, labels.get(fname)', arch_fname)
-                yield dict(img=img, label=labels.get(arch_fname), pc=pc_array)
+                yield dict(img=img, label=labels.get(arch_fname), pc=pc_array, proj_img=proj_img)
             else:
                 print(arch_fname, ' is not written into json file yet') # in the abo case
                 # st() 
@@ -291,8 +329,10 @@ def make_transform(
     def scale(width, height, img):
         w = img.shape[1]
         h = img.shape[0]
+ 
         if width == w and height == h:
             return img
+        st()
         img = PIL.Image.fromarray(img)
         ww = width if width is not None else w
         hh = height if height is not None else h
@@ -397,7 +437,9 @@ def open_dest(dest: str) -> Tuple[str, Callable[[str, Union[bytes, str]], None],
 @click.option('--transform', help='Input crop/resize mode', type=click.Choice(['center-crop', 'center-crop-wide']))
 @click.option('--resolution', help='Output resolution (e.g., \'512x512\')', metavar='WxH', type=parse_tuple)
 @click.option('--read_pointcloud', help='whether pc.csv is in dataset)', type=boolean, is_flag=True, default=False)
+@click.option('--split', help='Directory or archive name for input dataset', required=True, metavar='PATH')
 @click.option('--num_points', help='whether pc.csv is in dataset)', type=click.IntRange(min=1024, max=4096), required=False, default=1024)
+
 def convert_dataset(
     ctx: click.Context,
     source: str,
@@ -406,7 +448,9 @@ def convert_dataset(
     transform: Optional[str],
     resolution: Optional[Tuple[int, int]],
     read_pointcloud:Optional[boolean],
+    split: str,
     num_points:Optional[int],
+
 ):
     """Convert an image dataset into a dataset archive usable with StyleGAN2 ADA PyTorch.
 
@@ -471,8 +515,18 @@ def convert_dataset(
         global READ_POINTCLOUD
         READ_POINTCLOUD = True
         global NUM_POINTS
+
+        NUM_POINTS = 1024
+    
+        global READ_PROJECTION
+        READ_PROJECTION = True
+
+        global SPLIT
+        SPLIT = split
+
         NUM_POINTS = num_points
         print("num_points:", NUM_POINTS)
+
 
     PIL.Image.init() # type: ignore
 
@@ -491,14 +545,14 @@ def convert_dataset(
     labels = []
 
     for idx, image in tqdm(enumerate(input_iter), total=num_files):
-       
+
         idx_str = f'{idx:08d}'
         print(idx_str)
         archive_fname = f'{idx_str[:5]}/img{idx_str}.png'
 
         # Apply crop and resize.
         img = transform_image(image['img'])
-
+        
         # Transform may drop images.
         if img is None:
             continue
@@ -534,6 +588,7 @@ def convert_dataset(
             # im1 = img.save("geeks_white.png")
             # st()
         img = PIL.Image.fromarray(img, { 1: 'L', 3: 'RGB', 4: 'RGBA'}[channels])
+        # img.save("dataset_tool_img.png")
         
         if not WHITE_BKGD:
             if channels == 4: img = img.convert('RGB')
@@ -554,7 +609,31 @@ def convert_dataset(
         for row in pc_array:
             writer.writerow(row)
         save_bytes(os.path.join(archive_root_dir, archive_fname_pc), string_buffer.getvalue())
-        print(archive_fname_pc)
+        # print(archive_fname_pc)
+
+        # save projection as condition
+        proj_img = transform_image(image['proj_img'])
+        channels = proj_img.shape[2] if proj_img.ndim == 3 else 1
+        # PIL.Image.fromarray(proj_img, { 1: 'L', 3: 'RGB', 4: 'RGBA'}[channels]).save("dataset_tool_proj.png")
+        if channels == 4 and WHITE_BKGD:
+            proj_img = proj_img[...,:3] * (proj_img[...,-1:]/255) + (255 - proj_img[...,-1:])
+            proj_img = proj_img.astype(np.uint8)
+            channels = 3
+        
+        if not WHITE_BKGD:
+            if channels == 4: proj_img = proj_img.convert('RGB')
+        
+        proj_img = PIL.Image.fromarray(proj_img, { 1: 'L', 3: 'RGB', 4: 'RGBA'}[channels])
+        # proj_img.save("dataset_tool_proj.png")
+        # st()
+        
+
+        proj_image_bits = io.BytesIO()
+        proj_img.save(proj_image_bits, format='png', compress_level=0, optimize=False)
+        archive_fname_proj = archive_fname.replace('img', 'proj_img')
+        save_bytes(os.path.join(archive_root_dir, archive_fname_proj), proj_image_bits.getbuffer())
+        # print(archive_fname, archive_fname_pc, archive_fname_proj)
+       
 
     metadata = {
         'labels': labels if all(x is not None for x in labels) else None
