@@ -114,7 +114,7 @@ class Dataset(torch.utils.data.Dataset):
                 assert projection.ndim == 3 # CHW
                 projection = projection[:, :, ::-1]
         except:
-            st()
+            # st()
             projection = np.empty([1,0])
 
         return image.copy(), self.get_label(idx), pointcloud.copy(), projection.copy()
@@ -132,8 +132,8 @@ class Dataset(torch.utils.data.Dataset):
     def get_projection(self, idx):
         image = self._load_raw_projection(self._raw_idx[idx])
         assert isinstance(image, np.ndarray)
-        assert list(image.shape) == self.image_shape
-        assert image.dtype == np.uint8
+        # assert list(image.shape) == self.image_shape
+        # assert image.dtype == np.uint8
         if self._xflip[idx]:
             assert image.ndim == 3 # CHW
             image = image[:, :, ::-1]
@@ -231,7 +231,7 @@ class ImageFolderDataset(Dataset):
         self._image_fnames = sorted(fname for fname in self._all_fnames if (self._file_ext(fname) in PIL.Image.EXTENSION and 'proj' not in fname))
         self._pc_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) == '.csv')
         self._proj_fnames = sorted(fname for fname in self._all_fnames if (self._file_ext(fname) in PIL.Image.EXTENSION and 'proj' in fname))
-        assert len(self._proj_fnames) == len(self._pc_fnames) == len(self._image_fnames)
+        # assert len(self._proj_fnames) == len(self._pc_fnames) == len(self._image_fnames)
 
         if len(self._image_fnames) == 0:
             raise IOError('No image files found in the specified path')
@@ -283,16 +283,19 @@ class ImageFolderDataset(Dataset):
         return image
     
     def _load_raw_projection(self, raw_idx):
-        fname = self._proj_fnames[raw_idx]
-        with self._open_file(fname) as f:
-            if pyspng is not None and self._file_ext(fname) == '.png':
-                image = pyspng.load(f.read())
-            else:
-                image = np.array(PIL.Image.open(f))
-        if image.ndim == 2: 
-            image = image[:, :, np.newaxis] # HW => HWC
-        image = image.transpose(2, 0, 1) # HWC => CHW
-        return image
+        try:
+            fname = self._proj_fnames[raw_idx]
+            with self._open_file(fname) as f:
+                if pyspng is not None and self._file_ext(fname) == '.png':
+                    image = pyspng.load(f.read())
+                else:
+                    image = np.array(PIL.Image.open(f))
+            if image.ndim == 2: 
+                image = image[:, :, np.newaxis] # HW => HWC
+            image = image.transpose(2, 0, 1) # HWC => CHW
+            return image
+        except:
+            return np.empty([1,0])
     
     def _load_raw_pointcloud(self, raw_idx):
         fname = self._pc_fnames[raw_idx]

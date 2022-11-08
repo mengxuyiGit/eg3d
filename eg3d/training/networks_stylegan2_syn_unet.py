@@ -522,6 +522,7 @@ class SynthesisNetwork(torch.nn.Module):
         noise_strength,
         # vfe_feature,
         remove_latent,
+        outdim,
         img_resolution,             # Output image resolution.
         img_channels,               # Number of color channels.
         channel_base    = 32768,    # Overall multiplier for the number of channels.
@@ -607,7 +608,7 @@ class SynthesisNetwork(torch.nn.Module):
         #                     use_noise=(noise_strength!=0), noise_strength = noise_strength,
         #                     norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         self.synthesis_unet3d=Synthesis3DUnet_no_latent_shallower(in_channels=unet_in_channels,
-                            out_dim=32,
+                            out_dim=outdim,
                             use_noise=(noise_strength!=0), noise_strength = noise_strength,
                             norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
 
@@ -837,6 +838,7 @@ class Generator(torch.nn.Module):
         volume_res,                 # Volume resolution.
         noise_strength,             # Factor to multiply with noise in the 3D Unet block.
         remove_latent,
+        outdim,
         ##########################################
         img_resolution,             # Output resolution.
         img_channels,               # Number of output color channels.
@@ -853,7 +855,7 @@ class Generator(torch.nn.Module):
         ##########################################
         self.img_resolution = img_resolution
         self.img_channels = img_channels
-        self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength,remove_latent=remove_latent, img_channels=img_channels, **synthesis_kwargs)
+        self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength,remove_latent=remove_latent, outdim=outdim, img_channels=img_channels, **synthesis_kwargs)
         self.num_ws = self.synthesis.num_ws
         self.remove_latent = remove_latent
         if not self.remove_latent:

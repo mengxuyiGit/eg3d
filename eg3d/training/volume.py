@@ -96,6 +96,7 @@ class VolumeGenerator(torch.nn.Module):
         # self.backbone = StyleGAN2Backbone(z_dim, c_dim, w_dim, img_resolution=256, img_channels=32*3, mapping_kwargs=mapping_kwargs, **synthesis_kwargs)
         self.backbone = VolumeBackbone(z_dim, c_dim, w_dim, \
             pc_dim=pc_dim, volume_res=volume_res, noise_strength=noise_strength, remove_latent=remove_latent, \
+            outdim=decoder_dim,
             img_resolution=256, img_channels=32*3, mapping_kwargs=mapping_kwargs, **synthesis_kwargs)
         ##
         self.superresolution = dnnlib.util.construct_class_by_name(class_name=rendering_kwargs['superresolution_module'], channels=32, img_resolution=img_resolution, sr_num_fp16_res=sr_num_fp16_res, sr_antialias=rendering_kwargs['sr_antialias'], **sr_kwargs)
