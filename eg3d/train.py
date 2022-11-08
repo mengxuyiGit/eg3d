@@ -442,7 +442,7 @@ def main(**kwargs):
     c.loss_kwargs.patch_reg = opts.patch_reg
     assert not (opts.discriminator_condition_on_real and opts.discriminator_condition_on_projection)
     c.loss_kwargs.discriminator_condition_on_real = opts.discriminator_condition_on_real
-    c.loss_kwargs.discriminator_condition_on_projection = opts.discriminator_condition_on_projection
+    # c.loss_kwargs.discriminator_condition_on_projection = opts.discriminator_condition_on_projection
     c.loss_kwargs.drop_pixel_ratio = opts.drop_pixel_ratio
     
 
