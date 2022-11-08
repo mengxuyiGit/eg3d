@@ -31,6 +31,9 @@ from training.model_pointnet import PointNetfeat
 import PIL.Image
 import numpy as np
 
+import torch.nn.functional as F
+import torch.nn as nn
+
 def save_image_(img, fname, drange):
     lo, hi = drange
     img = np.asarray(img.cpu(), dtype=np.float32)
@@ -47,6 +50,7 @@ def save_image_(img, fname, drange):
         PIL.Image.fromarray(img[:, :, 0], 'L').save(fname)
     if C == 3:
         PIL.Image.fromarray(img, 'RGB').save(fname)
+
 
 @persistence.persistent_class
 class VolumeGenerator(torch.nn.Module):
@@ -94,10 +98,17 @@ class VolumeGenerator(torch.nn.Module):
         ##
         self.superresolution = dnnlib.util.construct_class_by_name(class_name=rendering_kwargs['superresolution_module'], channels=32, img_resolution=img_resolution, sr_num_fp16_res=sr_num_fp16_res, sr_antialias=rendering_kwargs['sr_antialias'], **sr_kwargs)
         # self.decoder = OSGDecoder(32, {'decoder_lr_mul': rendering_kwargs.get('decoder_lr_mul', 1), 'decoder_output_dim': 32})
-        self.decoder = OSGDecoder(decoder_dim, \
-            {'decoder_lr_mul': rendering_kwargs.get('decoder_lr_mul', 1), \
-            'decoder_output_dim': 32, \
-            'use_ray_directions': rendering_kwargs.get('use_ray_directions', False)}) # input_dim=8 for volume
+        if decoder_dim==8:
+            self.decoder = OSGDecoder(decoder_dim, \
+                {'decoder_lr_mul': rendering_kwargs.get('decoder_lr_mul', 1), \
+                'decoder_output_dim': 32, \
+                'use_ray_directions': rendering_kwargs.get('use_ray_directions', False)}) # input_dim=8 for volume
+        elif decoder_dim==32:
+            self.decoder = OSGDecoder_deeper(decoder_dim, \
+                {'decoder_lr_mul': rendering_kwargs.get('decoder_lr_mul', 1), \
+                'decoder_output_dim': 32, \
+                'use_ray_directions': rendering_kwargs.get('use_ray_directions', False)}) # input_dim=32 for deeper decoder
+
         self.neural_rendering_resolution = 64
         self.rendering_kwargs = rendering_kwargs
     
@@ -265,29 +276,52 @@ class OSGDecoder(torch.nn.Module):
         return {'rgb': rgb, 'sigma': sigma}
 
 
-## ----------------hard rendering--------------------------------------------
-    # def forward(self, sampled_features, ray_directions):
-    #     # st() # x.shape
-    #     # Aggregate features
+class OSGDecoder_deeper(torch.nn.Module):
+    def __init__(self, n_features, options):
+        super().__init__()
+        self.hidden_dim = 64
+        W=32
+        D=4
+        self.skips = [2]
+      
+        self.use_ray_directions = options['use_ray_directions']
+        self.pts_bias = nn.Linear(n_features, W)
+        self.pts_linears = nn.ModuleList(
+                [nn.Linear(n_features, W, bias=True)] + [nn.Linear(W, W, bias=True) if i not in self.skips else nn.Linear(W + n_features, W) for i in range(D-1)])
+       
+        if self.use_ray_directions:
+            n_features += 3
+            
+            self.feature_linear = nn.Linear(W, W)
+            self.alpha_linear = nn.Linear(W, 1)
+            self.rgb_linear = nn.Linear(W//2, 32)
+            self.views_linears = nn.ModuleList([nn.Linear(3 + W, W//2)])
+
+    def forward(self, sampled_features, ray_directions):
+      
+        input_feats, input_views = sampled_features.mean(1), ray_directions
+      
+        h = input_feats
+        skip_cat = input_feats
+        # bias = self.pts_bias(input_feats) # mvs: [1024,128,20], point: [1024,128,128]
         
-    #     sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
-    #     # if sampled_features.max() != 0:
-    #     #     st()
-    #     # if self.use_ray_directions:
-    #     #     sampled_features = torch.cat([sampled_features, ray_directions], -1)
+        for i, l in enumerate(self.pts_linears):
+            h = self.pts_linears[i](h)
+            h = F.relu(h) #torch.sigmoid(h) # 
+            if i in self.skips:
+                h = torch.cat([skip_cat, h], -1)
 
-    #     x = sampled_features
+        if self.use_ray_directions:
+            sigma = F.softplus(self.alpha_linear(h)-1)
+            feature = self.feature_linear(h)
+            st()
+            h = torch.cat([feature, input_views], -1)
 
-    #     N, M, C = x.shape
-    #     # x = x.view(N*M, C)
-
-    #     # x = self.net(x)
-    #     # x = x.view(N, M, -1)
-     
-    #     assert C == 4
-       
-    #     # rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
-    #     rgb = x[..., 1:] # directly take voxel color
-    #     sigma = x[..., 0:1]
-       
-    #     return {'rgb': rgb, 'sigma': sigma}
+            for i, l in enumerate(self.views_linears):
+                h = self.views_linears[i](h)
+                h = F.relu(h)
+            
+            
+            rgb = torch.sigmoid(self.rgb_linear(h))
+    
+        return {'rgb': rgb, 'sigma': sigma}
