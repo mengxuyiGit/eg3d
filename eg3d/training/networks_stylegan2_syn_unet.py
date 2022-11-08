@@ -566,7 +566,7 @@ class SynthesisNetwork(torch.nn.Module):
                 # self.vfe_model_occupancy = PointNet_lit(fea_dim=3, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
                 # self.vfe_model_color = PointNet_lit(fea_dim=9, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
                 self.vfe_model_occupancy = PointNet(fea_dim=3, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
-                self.vfe_model_color = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
+                self.vfe_model_color = PointNet(fea_dim=6, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
                 self.fea_compre = False
             else:
                 self.vfe_model = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
@@ -722,7 +722,8 @@ class SynthesisNetwork(torch.nn.Module):
         if pointnet_input== 'local_xyz':
             batch_pcl_local = (batch_pcl - batch_bbox[:,:,:1] - batch_xyz_cube_pos*batch_voxel_size) / batch_voxel_size - 0.5
             if batch_mtl is not None:
-                batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
+                # batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
+                batch_pcl_local =  batch_mtl#torch.Size([4, 1, 1500, 9])
             
             cat_pt_fea, cat_pt_ind = [], []
             for i_batch in range(len(batch_xyz_cube_pos)):
