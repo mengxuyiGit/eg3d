@@ -573,3 +573,117 @@ class Synthesis3DUnet_no_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         # print("no latent in unet")
         return x
+
+
+@persistence.persistent_class
+class Synthesis3DUnet_no_latent_wider(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
+    def __init__(self, 
+            in_channels, 
+            out_dim=8, 
+            use_noise=False,
+            noise_strength = 0.5,
+            ws_channel=512,
+            affine_act='relu', #### ???? FIXME: is this a good activation 
+            norm_act=InPlaceABN):
+
+        # super(Synthesis3DUnet_no_latent_wider, self).__init__()
+        super().__init__()
+
+        self.use_noise = use_noise
+        # noise_strength = 0.5
+        self.noise_strength = noise_strength
+
+        self.conv0 = ConvBnReLU3D(in_channels, out_dim, norm_act=norm_act)
+
+        self.conv1 = ConvBnReLU3D(out_dim, 64, stride=2, norm_act=norm_act)
+        self.conv2 = ConvBnReLU3D(64, 64, norm_act=norm_act)
+
+        self.conv3 = ConvBnReLU3D(64, 128, stride=2, norm_act=norm_act)
+        self.conv4 = ConvBnReLU3D(128, 128, norm_act=norm_act)
+
+        self.conv5 = ConvBnReLU3D(128, 256, stride=2, norm_act=norm_act)
+        self.conv6 = ConvBnReLU3D(256, 256, norm_act=norm_act)
+
+        self.conv51 = ConvBnReLU3D(256, 512, stride=2, norm_act=norm_act)
+        self.conv61 = ConvBnReLU3D(512, 512, norm_act=norm_act)
+
+        self.conv52 = ConvBnReLU3D(512, 1024, stride=2, norm_act=norm_act)
+        self.conv62 = ConvBnReLU3D(1024, 1024, norm_act=norm_act)
+
+        self.conv27 = nn.Sequential(
+            nn.ConvTranspose3d(1024, 512, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(512))
+        
+        self.conv17 = nn.Sequential(
+            nn.ConvTranspose3d(512, 256, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(256))
+    
+        self.conv7 = nn.Sequential(
+            nn.ConvTranspose3d(256, 128, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(128))
+       
+        self.conv9 = nn.Sequential(
+            nn.ConvTranspose3d(128, 64, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(64))
+       
+        self.conv11 = nn.Sequential(
+            nn.ConvTranspose3d(64, out_dim, 3, padding=1, output_padding=1,
+                               stride=2, bias=False),
+            norm_act(out_dim))
+      
+
+    def forward(self, x, ws=None):
+        assert ws==None
+        st()
+
+        conv0 = self.conv0(x)
+    
+        conv2 = self.conv2(self.conv1(conv0))
+        conv4 = self.conv4(self.conv3(conv2))
+     
+        conv6 = self.conv6(self.conv5(conv4))
+
+        conv61 = self.conv61(self.conv51(conv6))
+        conv62 = self.conv62(self.conv52(conv61))
+
+        x = conv61 + self.conv27(conv62)
+        if self.use_noise:
+            noise = torch.randn(x.shape, device=x.device, dtype=torch.float32)
+            noise = noise*self.noise_strength
+            
+            x = x.add_(noise.to(x.dtype))
+       
+
+        x = conv6 + self.conv17(x)
+        if self.use_noise:
+            noise = torch.randn(x.shape, device=x.device)
+            noise = noise*self.noise_strength
+            x = x.add_(noise.to(x.dtype))
+      
+
+        x = conv4 + self.conv7(x)
+        if self.use_noise:
+            noise = torch.randn(x.shape, device=x.device)
+            noise = noise*self.noise_strength
+            x = x.add_(noise.to(x.dtype))
+       
+
+        x = conv2 + self.conv9(x)
+        if self.use_noise:
+            noise = torch.randn(x.shape, device=x.device)
+            noise = noise*self.noise_strength
+            x = x.add_(noise.to(x.dtype))
+
+        x = conv0 + self.conv11(x)
+        if self.use_noise:
+            print("use noise")
+            noise = torch.randn(x.shape, device=x.device)
+            noise = noise*self.noise_strength
+            x = x.add_(noise.to(x.dtype))
+
+        # print("no latent in unet")
+        return x

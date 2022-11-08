@@ -31,7 +31,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
-from training.costregnet import Synthesis3DUnet, Synthesis3DUnet_no_latent
+from training.costregnet import Synthesis3DUnet, Synthesis3DUnet_no_latent, Synthesis3DUnet_no_latent_wider
 
 
 
