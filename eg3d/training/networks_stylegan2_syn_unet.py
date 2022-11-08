@@ -31,9 +31,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
-from training.costregnet import CostRegNet_Deeper, Synthesis3DUnet
-from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
-# from training.costregnet import Synthesis3DUnet_lit_without_latent as Synthesis3DUnet_separate
+
+
+# from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
+from training.costregnet import Synthesis3DUnet_no_latent as Synthesis3DUnet_separate
+
 
 
 #----------------------------------------------------------------------------
@@ -249,7 +251,7 @@ class MappingNetwork(torch.nn.Module):
 
     def forward(self, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False):
         # Embed, normalize, and concat inputs.
-     
+
         x = None
         with torch.autograd.profiler.record_function('input'):
             if self.z_dim > 0:
@@ -492,7 +494,11 @@ class SynthesisNetwork(torch.nn.Module):
         volume_res,
         noise_strength,
         # vfe_feature,
+
+        remove_latent,
+
         separate_oc_volumes,
+
         img_resolution,             # Output image resolution.
         img_channels,               # Number of color channels.
         channel_base    = 32768,    # Overall multiplier for the number of channels.
@@ -574,8 +580,7 @@ class SynthesisNetwork(torch.nn.Module):
        
         ######### for unet3d ############
         self.grid_size=[volume_res]*3
-        
-        # self.unet3d=CostRegNet_Deeper(unet_in_channels, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
+
         if self.separate_oc_volumes:
             unet_in_channels = 32
             self.synthesis_unet3d_occupancy=Synthesis3DUnet_separate(unet_in_channels,
@@ -586,6 +591,7 @@ class SynthesisNetwork(torch.nn.Module):
             unet_in_channels = 32
             self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels,
                                 use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
+
 
     def forward(self, ws, pc, box_warp, **block_kwargs):
     # def forward(self, ws, **block_kwargs):
@@ -871,7 +877,7 @@ class Generator(torch.nn.Module):
         pc_dim,                     # Conditioning poincloud (PC) dimensionality.
         volume_res,                 # Volume resolution.
         noise_strength,             # Factor to multiply with noise in the 3D Unet block.
-    
+        remove_latent,
         ##########################################
         img_resolution,             # Output resolution.
         img_channels,               # Number of output color channels.
@@ -888,15 +894,19 @@ class Generator(torch.nn.Module):
         ##########################################
         self.img_resolution = img_resolution
         self.img_channels = img_channels
-        self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength, img_channels=img_channels, **synthesis_kwargs)
+        self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength,remove_latent=remove_latent, img_channels=img_channels, **synthesis_kwargs)
         self.num_ws = self.synthesis.num_ws
-        self.mapping = MappingNetwork(z_dim=z_dim, c_dim=c_dim, w_dim=w_dim, num_ws=self.num_ws, **mapping_kwargs)
+        self.remove_latent = remove_latent
+        if not self.remove_latent:
+            self.mapping = MappingNetwork(z_dim=z_dim, c_dim=c_dim, w_dim=w_dim, num_ws=self.num_ws, **mapping_kwargs)
         
 
     def forward(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, update_emas=False, **synthesis_kwargs):
         # TODO: whether to include pc info during self.mapping??
-        
-        ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
+        if not self.remove_latent:
+            ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
+        else:
+            ws = None
         img = self.synthesis(ws, pc, update_emas=update_emas, **synthesis_kwargs)
         return img
 

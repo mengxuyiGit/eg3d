@@ -43,7 +43,9 @@ class VolumeGenerator(torch.nn.Module):
         decoder_dim,
         noise_strength,      
         z_from_pc,
+        remove_latent,
         synthesis_no_latent,
+
         ##########################################
         sr_num_fp16_res     = 0,
         mapping_kwargs      = {},   # Arguments for MappingNetwork.
@@ -61,8 +63,10 @@ class VolumeGenerator(torch.nn.Module):
         self.z_from_pc = z_from_pc
         if self.z_from_pc:
             self.pc2z = PointNetfeat()
-        
+
+        self.remove_latent = remove_latent   
         self.synthesis_no_latent = synthesis_no_latent
+
         ##########################################
         self.w_dim=w_dim
         self.img_resolution=img_resolution
@@ -73,7 +77,7 @@ class VolumeGenerator(torch.nn.Module):
         ## ------ change backbone to 3d CONV Unet --------
         # self.backbone = StyleGAN2Backbone(z_dim, c_dim, w_dim, img_resolution=256, img_channels=32*3, mapping_kwargs=mapping_kwargs, **synthesis_kwargs)
         self.backbone = VolumeBackbone(z_dim, c_dim, w_dim, \
-            pc_dim=pc_dim, volume_res=volume_res, noise_strength=noise_strength,\
+            pc_dim=pc_dim, volume_res=volume_res, noise_strength=noise_strength, remove_latent=remove_latent, \
             img_resolution=256, img_channels=32*3, mapping_kwargs=mapping_kwargs, **synthesis_kwargs)
         ##
         self.superresolution = dnnlib.util.construct_class_by_name(class_name=rendering_kwargs['superresolution_module'], channels=32, img_resolution=img_resolution, sr_num_fp16_res=sr_num_fp16_res, sr_antialias=rendering_kwargs['sr_antialias'], **sr_kwargs)
@@ -97,7 +101,9 @@ class VolumeGenerator(torch.nn.Module):
         self.log_idx = 0
     
     def mapping(self, z, c, pc, truncation_psi=1, truncation_cutoff=None, update_emas=False):
-        
+        if self.remove_latent:
+            return None
+            
         # instead of randomly sample z, condition it on input pc
         if self.z_from_pc:
             # print("z from pc")
@@ -174,7 +180,6 @@ class VolumeGenerator(torch.nn.Module):
 
         # Run superresolution to get final image
         rgb_image = feature_image[:, :3]
-        # st()
         sr_image = self.superresolution(rgb_image, feature_image, ws, noise_mode=self.rendering_kwargs['superresolution_noise_mode'], **{k:synthesis_kwargs[k] for k in synthesis_kwargs.keys() if k != 'noise_mode'})
 
         return {'image': sr_image, 'image_raw': rgb_image, 'image_depth': depth_image}

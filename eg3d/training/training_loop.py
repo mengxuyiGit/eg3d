@@ -31,6 +31,7 @@ from metrics import metric_main
 from camera_utils import LookAtPoseSampler
 from training.crosssection_utils import sample_cross_section
 from ipdb import set_trace as st
+from plyfile import PlyData,PlyElement
 #----------------------------------------------------------------------------
 
 def setup_snapshot_image_grid(training_set, random_seed=0):
@@ -68,10 +69,9 @@ def setup_snapshot_image_grid(training_set, random_seed=0):
             label_groups[label] = [indices[(i + gw) % len(indices)] for i in range(len(indices))]
 
     # Load data.
-    images, labels, pc_arrays = zip(*[training_set[i] for i in grid_indices])
-    # st()
+    images, labels, pc_arrays, projections = zip(*[training_set[i] for i in grid_indices])
     # print('getitem types ---------------------->',type(images[0]), type(labels[0]), type(pc_arrays[0]))
-    return (gw, gh), np.stack(images), np.stack(labels), np.stack(pc_arrays)
+    return (gw, gh), np.stack(images), np.stack(labels), np.stack(pc_arrays), np.stack(projections)
 
 #----------------------------------------------------------------------------
 
@@ -93,6 +93,52 @@ def save_image_grid(img, fname, drange, grid_size):
     if C == 3:
         PIL.Image.fromarray(img, 'RGB').save(fname)
 
+#----------------------------------------------------------------------------
+
+def save_ply_from_tensor(points, save_path, color=None, write_text=False):
+    if color != None:
+        pts_color = torch.tensor(color, device=points.device).repeat(points.shape[0],1)
+        points = torch.cat((points, pts_color), dim=-1)
+
+    assert points.shape[-1]>=6
+    pts = points.numpy()
+    n = pts.shape[0]
+    x, y, z = pts[:,0], pts[:,1], pts[:,2]
+    pts = (pts*255).astype(int)
+    red, green, blue = pts[:,3], pts[:,4], pts[:,5]
+
+    # connect the proper data structures
+    vertices = np.empty(n, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    vertices['x'] = x.astype('f4')
+    vertices['y'] = y.astype('f4')
+    vertices['z'] = z.astype('f4')
+    vertices['red'] = red.astype('u1')
+    vertices['green'] = green.astype('u1')
+    vertices['blue'] = blue.astype('u1')
+
+    # save as ply
+    ply = PlyData([PlyElement.describe(vertices, 'vertex')], text=False)
+    ply.write(save_path)
+    # print("Ply file saved to:", save_path)
+    return 
+
+
+
+def save_fetched_data(phase_real_img, phase_real_c, phase_real_pc, phase_real_proj, data_idx):
+    # print(phase_real_img, phase_real_c, phase_real_pc)
+    
+    if phase_real_img.dim()>3:
+        for i, (img, c, pc, proj) in enumerate(zip(phase_real_img, phase_real_c, phase_real_pc, phase_real_proj)):
+        # for img, c, pc in zip(phase_real_img, phase_real_c, phase_real_pc):
+            save_path = os.path.join("/home/xuyi/Repo/eg3d/try-runs/debug_data", f"data_{data_idx}_{i}")
+            print(save_path)
+            PIL.Image.fromarray(img.detach().clone().cpu().numpy().astype(np.uint8).transpose(1,2,0), 'RGB').save(f"{save_path}.png")
+            PIL.Image.fromarray(proj.detach().clone().cpu().numpy().astype(np.uint8).transpose(1,2,0), 'RGB').save(f"{save_path}_proj.png")
+            save_ply_from_tensor(pc.detach().clone().cpu(), f"{save_path}.ply")
+            print(c)
+       
+    
+    return 
 #----------------------------------------------------------------------------
 
 def training_loop(
@@ -192,10 +238,12 @@ def training_loop(
         from training.patch_discriminator import PatchDiscriminator
         if isinstance(D, PatchDiscriminator):
             img_d = img['image']
-            if loss_kwargs.discriminator_condition_on_real:
+            if loss_kwargs.discriminator_condition_on_real or loss_kwargs.discriminator_condition_on_projection:
                 img_d = torch.cat([img_d, img_d], 1) # [B,6,H,W]
             misc.print_module_summary(D, [img_d, True])
         else:
+            if loss_kwargs.discriminator_condition_on_real or loss_kwargs.discriminator_condition_on_projection:
+                img['condition']=torch.zeros_like(img['image']) # [B,6,H,W]
             misc.print_module_summary(D, [img, c])
 
     # Setup augmentation.
@@ -256,7 +304,7 @@ def training_loop(
     grid_pc = None
     if rank == 0:
         print('Exporting sample images...')
-        grid_size, images, labels, pointclouds = setup_snapshot_image_grid(training_set=training_set)
+        grid_size, images, labels, pointclouds, projections = setup_snapshot_image_grid(training_set=training_set)
         print("------------->", grid_size, images.shape, labels.shape, pointclouds.shape)
         save_image_grid(images, os.path.join(run_dir, 'reals.png'), drange=[0,255], grid_size=grid_size)
         grid_z = torch.randn([labels.shape[0], G.z_dim], device=device).split(batch_gpu)
@@ -294,24 +342,44 @@ def training_loop(
 
         # Fetch training data.
         with torch.autograd.profiler.record_function('data_fetch'):
-            phase_real_img, phase_real_c, phase_real_pc = next(training_set_iterator)
+            phase_real_img, phase_real_c, phase_real_pc, phase_real_proj = next(training_set_iterator)
+            # if DEBUG_DATA:
+                
+            #     save_fetched_data(phase_real_img, phase_real_c, phase_real_pc, phase_real_proj, data_idx)
+            #     st()
+            #     data_idx += 1
+            #     # continue
+
             phase_real_img = (phase_real_img.to(device).to(torch.float32) / 127.5 - 1).split(batch_gpu)
             phase_real_c = phase_real_c.to(device).split(batch_gpu)
             phase_real_pc = phase_real_pc.to(device).split(batch_gpu)
+            phase_real_proj = (phase_real_proj.to(device).to(torch.float32) / 127.5 - 1).split(batch_gpu)
+
             all_gen_z = torch.randn([len(phases) * batch_size, G.z_dim], device=device)
             all_gen_z = [phase_gen_z.split(batch_gpu) for phase_gen_z in all_gen_z.split(batch_size)]
             # same indices for c and pc
             gen_indices = [np.random.randint(len(training_set)) for _ in range(len(phases) * batch_size)]
+            all_gen_gt = [training_set.get_image(idx) for idx in gen_indices]
+            all_gen_gt = torch.from_numpy(np.stack(all_gen_gt)).pin_memory().to(device)
+            all_gen_gt = (all_gen_gt.to(torch.float32) / 127.5 - 1) # 0~255 -> -1~1
+            all_gen_gt = [phase_gen_gt.split(batch_gpu) for phase_gen_gt in all_gen_gt.split(batch_size)]
             all_gen_c = [training_set.get_label(idx) for idx in gen_indices]
             all_gen_c = torch.from_numpy(np.stack(all_gen_c)).pin_memory().to(device)
             all_gen_c = [phase_gen_c.split(batch_gpu) for phase_gen_c in all_gen_c.split(batch_size)]
             all_gen_pc = [training_set.get_pointcloud(idx) for idx in gen_indices]
             all_gen_pc = torch.from_numpy(np.stack(all_gen_pc)).pin_memory().to(device)
             all_gen_pc = [phase_gen_pc.split(batch_gpu) for phase_gen_pc in all_gen_pc.split(batch_size)]
+
             
+            all_gen_proj = [training_set.get_projection(idx) for idx in gen_indices]
+            all_gen_proj = torch.from_numpy(np.stack(all_gen_proj)).pin_memory().to(device)
+            all_gen_proj = (all_gen_proj.to(torch.float32) / 127.5 - 1) # 0~255 -> -1~1
+            all_gen_proj = [phase_gen_proj.split(batch_gpu) for phase_gen_proj in all_gen_proj.split(batch_size)]
+        
+     
 
         # Execute training phases.
-        for phase, phase_gen_z, phase_gen_c, phase_gen_pc in zip(phases, all_gen_z, all_gen_c, all_gen_pc):
+        for phase, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc, phase_gen_proj in zip(phases, all_gen_z, all_gen_gt, all_gen_c, all_gen_pc, all_gen_proj):
             if batch_idx % phase.interval != 0:
                 continue
             if phase.start_event is not None:
@@ -323,9 +391,17 @@ def training_loop(
 
             # if rank == 0:
             #     print('############# current phase:', phase, '############')
-            
-            for real_img, real_c, gen_z, gen_c, gen_pc in zip(phase_real_img, phase_real_c, phase_gen_z, phase_gen_c, phase_gen_pc):
-                loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
+
+            # if DEBUG_DATA:
+                
+            #     save_fetched_data((phase_real_img[0].detach().clone() + 1)*127.5, phase_real_c[0], phase_real_pc[0], (phase_real_proj[0].detach().clone() + 1)*127.5, data_idx)
+            #     data_idx += 1
+            #     # continue
+            #     st()
+
+            for real_img, real_c, real_proj, gen_z, gen_gt, gen_c, gen_pc, gen_proj in zip(phase_real_img, phase_real_c, phase_real_proj, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc, phase_gen_proj):
+                loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, real_proj=real_proj, gen_z=gen_z, gen_gt=gen_gt, gen_c=gen_c, gen_pc=gen_pc, gen_proj=gen_proj, gain=phase.interval, cur_nimg=cur_nimg)
+                
             if 'G' in phase:
                 st() # check patchD
             phase.module.requires_grad_(False)

@@ -104,8 +104,43 @@ class Dataset(torch.utils.data.Dataset):
             pointcloud = self._load_raw_pointcloud(self._raw_idx[idx])
         except:
             pointcloud = np.empty([1,0])
+        
+        try:
+            projection = self._load_raw_projection(self._raw_idx[idx])
+            assert isinstance(projection, np.ndarray)
+            assert list(projection.shape) == self.image_shape
+            assert projection.dtype == np.uint8
+            if self._xflip[idx]:
+                assert projection.ndim == 3 # CHW
+                projection = projection[:, :, ::-1]
+        except:
+            # st()
+            projection = np.empty([1,0])
 
-        return image.copy(), self.get_label(idx), pointcloud.copy()
+        return image.copy(), self.get_label(idx), pointcloud.copy(), projection.copy()
+
+    def get_image(self, idx):
+        image = self._load_raw_image(self._raw_idx[idx])
+        assert isinstance(image, np.ndarray)
+        assert list(image.shape) == self.image_shape
+        assert image.dtype == np.uint8
+        if self._xflip[idx]:
+            assert image.ndim == 3 # CHW
+            image = image[:, :, ::-1]
+        return image.copy()
+    
+    def get_projection(self, idx):
+        try:
+            image = self._load_raw_projection(self._raw_idx[idx])
+            assert isinstance(image, np.ndarray)
+            assert list(image.shape) == self.image_shape
+            assert image.dtype == np.uint8
+            if self._xflip[idx]:
+                assert image.ndim == 3 # CHW
+                image = image[:, :, ::-1]
+        except:
+            image = np.empty([1,0])
+        return image.copy()
 
     def get_label(self, idx):
         label = self._get_raw_labels()[self._raw_idx[idx]]
@@ -118,6 +153,7 @@ class Dataset(torch.utils.data.Dataset):
     def get_pointcloud(self, idx):
         pointcloud = self._load_raw_pointcloud(self._raw_idx[idx])
         return pointcloud.copy()
+    
 
     def get_details(self, idx):
         d = dnnlib.EasyDict()
@@ -195,8 +231,10 @@ class ImageFolderDataset(Dataset):
             raise IOError('Path must point to a directory or zip')
 
         PIL.Image.init()
-        self._image_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) in PIL.Image.EXTENSION)
+        self._image_fnames = sorted(fname for fname in self._all_fnames if (self._file_ext(fname) in PIL.Image.EXTENSION and 'proj' not in fname))
         self._pc_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) == '.csv')
+        self._proj_fnames = sorted(fname for fname in self._all_fnames if (self._file_ext(fname) in PIL.Image.EXTENSION and 'proj' in fname))
+        assert len(self._proj_fnames) == len(self._pc_fnames) == len(self._image_fnames) or len(self._proj_fnames)==0
 
         if len(self._image_fnames) == 0:
             raise IOError('No image files found in the specified path')
@@ -243,6 +281,18 @@ class ImageFolderDataset(Dataset):
             else:
                 image = np.array(PIL.Image.open(f))
         if image.ndim == 2:
+            image = image[:, :, np.newaxis] # HW => HWC
+        image = image.transpose(2, 0, 1) # HWC => CHW
+        return image
+    
+    def _load_raw_projection(self, raw_idx):
+        fname = self._proj_fnames[raw_idx]
+        with self._open_file(fname) as f:
+            if pyspng is not None and self._file_ext(fname) == '.png':
+                image = pyspng.load(f.read())
+            else:
+                image = np.array(PIL.Image.open(f))
+        if image.ndim == 2: 
             image = image[:, :, np.newaxis] # HW => HWC
         image = image.transpose(2, 0, 1) # HWC => CHW
         return image

@@ -207,16 +207,22 @@ def parse_comma_separated_list(s):
 @click.option('--use_ray_directions', help='If true, use_ray_directions during rendering.', metavar='BOOL',  type=bool, required=False, default=True)
 @click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=10), default=0.5, show_default=True)
 @click.option('--z_from_pc', help='Latent z is not randomly sampled, but condition on input point cloud.', metavar='BOOL',  type=bool, required=False, default=False)
+
+@click.option('--remove_latent', help='Latent z is not used in the model.', metavar='BOOL',  type=bool, required=False, default=False)
+
 @click.option('--synthesis_no_latent', help='Not using latent to generate.', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--separate_oc_volumes', help='get3d two branches.', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--rgb_use_occupancy', help='in OSG_decoder_separate, render rgb also uses occupancy information.', metavar='BOOL',  type=bool, required=False, default=False)
 
+
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
-@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.5), default=1, required=False, show_default=True)
+@click.option('--patch_reg',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0.0), default=1, required=False, show_default=True)
 
 @click.option('--discriminator_condition_on_real',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--drop_pixel_ratio',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.8, required=False, show_default=True)
+@click.option('--discriminator_condition_on_projection',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
+
 
 # specially for VolumeLoss
 @click.option('--use_chamfer',    help='Use chamfer loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
@@ -313,20 +319,25 @@ def main(**kwargs):
         c.G_kwargs.decoder_dim = opts.decoder_dim
         c.G_kwargs.noise_strength = opts.noise_strength
         c.G_kwargs.z_from_pc = opts.z_from_pc
+
+        c.G_kwargs.remove_latent = opts.remove_latent
+
         c.G_kwargs.synthesis_no_latent = opts.synthesis_no_latent
         c.G_kwargs.separate_oc_volumes = opts.separate_oc_volumes
+
         
         if opts.use_patch:
             c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'
             c.D_kwargs.use_patch = opts.use_patch
-            if opts.discriminator_condition_on_real:
+            if opts.discriminator_condition_on_real or opts.discriminator_condition_on_projection:
                 c.D_kwargs.input_nc = 6
             else:
                 c.D_kwargs.input_nc = 3
         else:
-            assert not opts.discriminator_condition_on_real # not supporting 
             c.D_kwargs.class_name = 'training.patch_discriminator.DualDiscriminator'
-        # c.G_kwargs.decoder_outdim = opts.decoder_outdim
+            if opts.discriminator_condition_on_real or opts.discriminator_condition_on_projection:
+                c.D_kwargs.conditional_discriminator = True
+
     else:
         c.G_kwargs.class_name = 'training.triplane.TriPlaneGenerator'
         c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
@@ -445,7 +456,9 @@ def main(**kwargs):
     c.loss_kwargs.l2_reg = opts.l2_reg
     c.loss_kwargs.use_patch = opts.use_patch
     c.loss_kwargs.patch_reg = opts.patch_reg
+    assert not (opts.discriminator_condition_on_real and opts.discriminator_condition_on_projection)
     c.loss_kwargs.discriminator_condition_on_real = opts.discriminator_condition_on_real
+    c.loss_kwargs.discriminator_condition_on_projection = opts.discriminator_condition_on_projection
     c.loss_kwargs.drop_pixel_ratio = opts.drop_pixel_ratio
     
 

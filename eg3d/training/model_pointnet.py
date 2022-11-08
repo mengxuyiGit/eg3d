@@ -116,7 +116,7 @@ class PointNetfeat(nn.Module):
             self.fstn = STNkd(k=64)
 
     def forward(self, x):
-    
+        st()
         B,C,N = x.shape
         n_pts = x.size()[2]
         trans = self.stn(x)
