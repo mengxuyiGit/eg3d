@@ -449,14 +449,14 @@ class Synthesis3DUnet_no_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
         # super(Synthesis3DUnet_no_latent, self).__init__()
         super().__init__()
 
-        self.use_noise = use_noise
+        self.use_noise = (use_noise and noise_strength>0)
 
         # noise_strength = 0.5
         self.noise_strength = noise_strength
 
-        self.conv0 = ConvBnReLU3D(in_channels, out_dim, norm_act=norm_act)
+        self.conv0 = ConvBnReLU3D(in_channels, out_dim//2, norm_act=norm_act)
 
-        self.conv1 = ConvBnReLU3D(out_dim, 16, stride=2, norm_act=norm_act)
+        self.conv1 = ConvBnReLU3D(out_dim//2, 16, stride=2, norm_act=norm_act)
 
         self.conv2 = ConvBnReLU3D(16, 16, norm_act=norm_act)
 
@@ -499,9 +499,9 @@ class Synthesis3DUnet_no_latent(nn.Module): # 256^3 -> 8^3; 128^3 -> 4^3
 
         self.conv11 = nn.Sequential(
 
-            nn.ConvTranspose3d(16, out_dim, 3, padding=1, output_padding=1,
+            nn.ConvTranspose3d(16, out_dim//2, 3, padding=1, output_padding=1,
                                stride=2, bias=False),
-            norm_act(out_dim))
+            norm_act(out_dim//2))
 
 
         # self.conv12 = nn.Conv3d(8, 8, 3, stride=1, padding=1, bias=True)
