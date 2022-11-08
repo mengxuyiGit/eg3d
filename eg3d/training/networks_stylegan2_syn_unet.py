@@ -31,10 +31,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
-from training.costregnet import Synthesis3DUnet, Synthesis3DUnet_no_latent, Synthesis3DUnet_no_latent_wider
-
-
-
+from training.costregnet import Synthesis3DUnet 
+from training.costregnet import Synthesis3DUnet_no_latent_jiayuan as Synthesis3DUnet_no_latent_wider
+# from training.costregnet import Synthesis3DUnet_no_latent_fanbo as Synthesis3DUnet_no_latent_shallower
 #----------------------------------------------------------------------------
 
 @misc.profiled_function
@@ -572,9 +571,13 @@ class SynthesisNetwork(torch.nn.Module):
                                 use_noise=(noise_strength!=0), noise_strength = noise_strength,
                                 norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         else:
-            self.synthesis_unet3d=Synthesis3DUnet_no_latent(in_channels=unet_in_channels,
+            self.synthesis_unet3d=Synthesis3DUnet_no_latent_wider(in_channels=unet_in_channels,
                                 use_noise=(noise_strength!=0), noise_strength = noise_strength,
                                 norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
+            # self.synthesis_unet3d=Synthesis3DUnet_no_latent_shallower(in_channels=unet_in_channels,
+            #                     out_dim=32,
+            #                     use_noise=(noise_strength!=0), noise_strength = noise_strength,
+            #                     norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
 
 
     def forward(self, ws, pc, box_warp, **block_kwargs):
