@@ -215,6 +215,8 @@ def parse_comma_separated_list(s):
 
 @click.option('--discriminator_condition_on_real',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--drop_pixel_ratio',    help='patch D reg', metavar='FLOAT', type=click.FloatRange(min=0, max=1), default=0.8, required=False, show_default=True)
+@click.option('--discriminator_condition_on_projection',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
+
 
 # specially for VolumeLoss
 @click.option('--use_chamfer',    help='Use chamfer loss to regularize G', metavar='BOOL',  type=bool, required=False, default=False)
@@ -316,14 +318,15 @@ def main(**kwargs):
         if opts.use_patch:
             c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'
             c.D_kwargs.use_patch = opts.use_patch
-            if opts.discriminator_condition_on_real:
+            if opts.discriminator_condition_on_real or opts.discriminator_condition_on_projection:
                 c.D_kwargs.input_nc = 6
             else:
                 c.D_kwargs.input_nc = 3
         else:
-            assert not opts.discriminator_condition_on_real # not supporting 
             c.D_kwargs.class_name = 'training.patch_discriminator.DualDiscriminator'
-        # c.G_kwargs.decoder_outdim = opts.decoder_outdim
+            if opts.discriminator_condition_on_real or opts.discriminator_condition_on_projection:
+                c.D_kwargs.conditional_discriminator = True
+
     else:
         c.G_kwargs.class_name = 'training.triplane.TriPlaneGenerator'
         c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
@@ -395,11 +398,8 @@ def main(**kwargs):
         })
     elif opts.cfg == 'abo_dataset':
         rendering_options.update({
-            # 'depth_resolution': 64,
-            # 'depth_resolution_importance': 16,
-            ## below is to align with MVSNeRF
             'depth_resolution': 64,
-            'depth_resolution_importance': 0,
+            'depth_resolution_importance': 16,
             'ray_start': 0.1,
             'ray_end': 2.6,
             'box_warp': 1.6,
@@ -440,7 +440,9 @@ def main(**kwargs):
     c.loss_kwargs.l2_reg = opts.l2_reg
     c.loss_kwargs.use_patch = opts.use_patch
     c.loss_kwargs.patch_reg = opts.patch_reg
+    assert not (opts.discriminator_condition_on_real and opts.discriminator_condition_on_projection)
     c.loss_kwargs.discriminator_condition_on_real = opts.discriminator_condition_on_real
+    c.loss_kwargs.discriminator_condition_on_projection = opts.discriminator_condition_on_projection
     c.loss_kwargs.drop_pixel_ratio = opts.drop_pixel_ratio
     
 

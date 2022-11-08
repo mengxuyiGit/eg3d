@@ -498,12 +498,12 @@ def training_loop(
 
                 # print('G_ema',idx)
                 # idx+=1
-                out=[]
-                for z, c, pc in zip(grid_z, grid_c, grid_pc):
-                    print('G_ema',idx)
-                    idx+=1
-                    out.append(G_ema(z=z, c=c, pc=pc, noise_mode='const'))
-                # out = [G_ema(z=z, c=c, pc=pc, noise_mode='const') for z, c, pc in zip(grid_z, grid_c, grid_pc)]
+                # out=[]
+                # for z, c, pc in zip(grid_z, grid_c, grid_pc):
+                #     print('G_ema',idx)
+                #     idx+=1
+                #     out.append(G_ema(z=z, c=c, pc=pc, noise_mode='const'))
+                out = [G_ema(z=z, c=c, pc=pc, noise_mode='const') for z, c, pc in zip(grid_z, grid_c, grid_pc)]
             else:
                 st()
                 out = [G_ema(z=z, c=c, noise_mode='const') for z, c in zip(grid_z, grid_c)]

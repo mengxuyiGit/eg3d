@@ -293,8 +293,8 @@ class OSGDecoder_deeper(torch.nn.Module):
         super().__init__()
         self.hidden_dim = 64
         W=32
-        D=3
-        self.skips = [1]
+        D=6
+        self.skips = [4]
         
       
         self.use_ray_directions = options['use_ray_directions']
@@ -311,7 +311,7 @@ class OSGDecoder_deeper(torch.nn.Module):
             self.views_linears = nn.ModuleList([nn.Linear(3 + W, W//2)])
 
     def forward(self, sampled_features, ray_directions):
-        st()
+     
         input_feats, input_views = sampled_features.mean(1), ray_directions
       
         h = input_feats
