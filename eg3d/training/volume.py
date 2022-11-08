@@ -218,7 +218,7 @@ class OSGDecoder(torch.nn.Module):
         
         
     def forward(self, sampled_features, ray_directions):
-        st() # x.shape
+        # st() # x.shape
         # Aggregate features
         
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
