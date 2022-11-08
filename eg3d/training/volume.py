@@ -136,8 +136,8 @@ class VolumeGenerator(torch.nn.Module):
         return self.backbone.mapping(z, c * self.rendering_kwargs.get('c_scale', 0), truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff, update_emas=update_emas)
 
     def synthesis(self, ws, c, pc=None, neural_rendering_resolution=None, update_emas=False, cache_backbone=False, use_cached_backbone=False, **synthesis_kwargs):
-        print("synthesis", self.log_idx)
-        self.log_idx += 1
+        # print("synthesis", self.log_idx)
+        # self.log_idx += 1
         cam2world_matrix = c[:, :16].view(-1, 4, 4)
         intrinsics = c[:, 16:25].view(-1, 3, 3)
         DEBUG_MODE = True
@@ -263,10 +263,10 @@ class OSGDecoder(torch.nn.Module):
         
     def forward(self, sampled_features, ray_directions):
         # st() # x.shape
-        print("decoder!", self.idx)
-        self.idx+=1
-        if self.idx>100:
-            st()
+        # print("decoder!", self.idx)
+        # self.idx+=1
+        # if self.idx>100:
+        #     st()
         # Aggregate features
         
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
