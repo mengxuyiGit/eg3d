@@ -18,7 +18,7 @@ import subprocess
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory() as working_dir:
         # working_dir = '/tmp/tmphal02_sj' # /cars_train.zip
-        working_dir = '/home/xuyi/Data'
+        # working_dir = '/home/xuyi/Data'
         # print(working_dir)
         # download_name = 'cars_train.zip'
         # url = 'https://drive.google.com/uc?id=1bThUNtIHx4xEQyffVBSf82ABDDh2HlFn'

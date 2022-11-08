@@ -303,18 +303,18 @@ class OSGDecoder_deeper(torch.nn.Module):
             self.views_linears = nn.ModuleList([nn.Linear(3 + W, W//2)])
 
     def forward(self, sampled_features, ray_directions):
-      
+        st()
         input_feats, input_views = sampled_features.mean(1), ray_directions
       
         h = input_feats
-        skip_cat = input_feats
+        # skip_cat = input_feats
         # bias = self.pts_bias(input_feats) # mvs: [1024,128,20], point: [1024,128,128]
         
         for i, l in enumerate(self.pts_linears):
             h = self.pts_linears[i](h)
             h = F.relu(h) #torch.sigmoid(h) # 
             if i in self.skips:
-                h = torch.cat([skip_cat, h], -1)
+                h = torch.cat([input_feats, h], -1)
 
         if self.use_ray_directions:
             sigma = F.softplus(self.alpha_linear(h)-1)

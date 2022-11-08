@@ -408,6 +408,8 @@ def training_loop(
 
             for real_img, real_c, real_proj, gen_z, gen_gt, gen_c, gen_pc, gen_proj in zip(phase_real_img, phase_real_c, phase_real_proj, phase_gen_z, phase_gen_gt, phase_gen_c, phase_gen_pc, phase_gen_proj):
                 loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_gt=gen_gt, gen_c=gen_c, gen_pc=gen_pc, gain=phase.interval, cur_nimg=cur_nimg)
+                print(phase)
+                st()
             if 'G' in phase:
                 st() # check patchD
             phase.module.requires_grad_(False)

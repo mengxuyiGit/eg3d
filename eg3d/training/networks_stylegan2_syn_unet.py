@@ -33,7 +33,7 @@ import torch_scatter
 import spconv.pytorch.conv as spconv
 from training.costregnet import CostRegNet_Deeper
 from training.costregnet import Synthesis3DUnet_no_latent_jiayuan as Synthesis3DUnet_no_latent_wider
-from training.costregnet import Synthesis3DUnet_no_latent_fanbo as Synthesis3DUnet_no_latent_shallower
+from training.costregnet import Synthesis3DUnet_no_latent_fanbo_lit as Synthesis3DUnet_no_latent_shallower
 #----------------------------------------------------------------------------
 
 @misc.profiled_function
