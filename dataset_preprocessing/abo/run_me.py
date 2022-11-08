@@ -25,6 +25,7 @@ if __name__ == '__main__':
         # output_dataset_name = 'abo_128_completed.zip'
         # output_dataset_name = 'abo_128_completed_white.zip'
         # output_dataset_name = 'abo_512_completed_white.zip'
+
         # output_dataset_name = 'debug_one_obj_one_view.zip'
         # output_dataset_name = 'debug_one_obj_100_view.zip'
 
@@ -42,18 +43,15 @@ if __name__ == '__main__':
 
         
         print("Converting camera parameters...")
+
         cmd = f"python {os.path.join(dir_path, 'preprocess_abo_cameras.py')} --source={extracted_data_path} --split={split} --pc_fbase={pc_fbase} "
         # if os.geteuid() != 0:
         #     # os.execvp('sudo', ['sudo', cmd])
         #     subprocess.run(['sudo', cmd], shell=True)
         # else:
-        subprocess.run([cmd], shell=True)
+
 
         print("Creating dataset zip...")
         cmd = f"python {os.path.join(dir_path, '../../eg3d', 'dataset_tool.py')}"
-<<<<<<< HEAD
-        cmd += f" --source {extracted_data_path} --dest {output_dataset_name} --resolution 512x512 --read_pointcloud"
-=======
-        cmd += f" --source {extracted_data_path} --dest {output_dataset_name} --resolution 128x128 --read_pointcloud --split={split}"
->>>>>>> 4104a3a... added projection in the dataseet
+        cmd += f" --source {extracted_data_path} --dest {output_dataset_name} --resolution {res}x{res} --read_pointcloud --num_points {npoints}"
         subprocess.run([cmd], shell=True)

@@ -340,12 +340,14 @@ class StyleGAN2Loss(Loss):
                         else: 
                             img = gen_img['image']
                         
+
                         target = True
                         patch_loss = self.run_patchD(img, target)*self.patchD_reg
                         loss_Gmain = patch_loss
                         # print(f"---------loss_patch_G\t\t(x{self.patchD_reg}): {(patch_loss).sum().item()}-------------")
                         training_stats.report('Loss/G/patch_loss_fake',patch_loss)
                         training_stats.report('Loss/G/loss', loss_Gmain)
+
                 
                 else:
                     if self.D.is_conditional_D: # cat with pixel_dropped image
@@ -377,6 +379,7 @@ class StyleGAN2Loss(Loss):
 
                 # L1 loss on the whole gen image
                 if self.use_l1:
+
                     l1_loss = self.cal_l1_loss(gen_img=gen_img, real_img=gen_gt_img)
                     # l1_loss = torch.mean(l1_loss.flatten(1), -1, True) * self.l1_reg
                     l1_loss = torch.mean(l1_loss) * self.l1_reg

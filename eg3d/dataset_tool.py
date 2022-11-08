@@ -80,6 +80,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
     
     # filter out 'depth' and 'normal'
     # input_images = [ f for f in input_images if ('depth' not in f) and ('normal' not in f) and ('Image' not in f)]
+
     input_images = [ f for f in input_images if ('render/r_' in f)]
 
     # -----------only load the selected images in the txt file---------------
@@ -94,6 +95,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
     input_images = [f for f in input_images if f.split(os.sep)[-3] in all_data]
     # ----------------------------------------------------------------------------------
  
+
     # Load labels.
     labels = {}
     meta_fname = os.path.join('/home/xuyi/Repo/eg3d/dataset_preprocessing/abo', 'dataset.json')
@@ -101,20 +103,24 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
     if os.path.isfile(meta_fname):
         with open(meta_fname, 'r') as file:
             labels = json.load(file)['labels']
-            # st()
+
             if labels is not None:
                 try:
+
                   
                     # pc_rel_paths = { x[0]: x[2] for x in labels }
                     # pc_rel_paths = { os.path.relpath(x[0], '../output_cutter') : x[2] for x in labels }
                     pc_rel_paths = { os.path.join(x[0].split(os.sep)[-3],x[0].split(os.sep)[-2],x[0].split(os.sep)[-1]): x[2] for x in labels}
          
                     
+
                     # print(pc_rel_paths)
                 except:
                     print("No pointcloud input in dataset")
                     pc_rel_paths = {}
+
                 labels = {os.path.join(x[0].split(os.sep)[-3],x[0].split(os.sep)[-2],x[0].split(os.sep)[-1]) : x[1] for x in labels }
+
                 
             else:
                 labels = {}
@@ -128,11 +134,12 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             arch_fname = os.path.relpath(fname, source_dir)
             arch_fname = arch_fname.replace('\\', '/')
             img = np.array(PIL.Image.open(fname))
+            # print(idx, fname)
 
             if READ_POINTCLOUD:
       
                 pc_rel = pc_rel_paths.get(arch_fname[:-4])
-               
+
                 if pc_rel != None:
                     pc_fname = os.path.join(source_dir, pc_rel)
                     pc_df = pd.read_csv(pc_fname)
@@ -152,8 +159,10 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
                         # particle_pos = particle_pos[poisson_idx]
                         pc_array = pc_array[poisson_idx]    
                 else:
+
                     print("continue")
                     print(arch_fname[:-4])
+
                     continue
             else:
                 pc_array=None
@@ -177,12 +186,13 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             
             arch_fname = os.path.splitext(arch_fname)[0]
             label_get = labels.get(arch_fname)
+        
             if label_get != None:
                 # st()
                 # print('fname, labels.get(fname)', arch_fname)
                 yield dict(img=img, label=labels.get(arch_fname), pc=pc_array, proj_img=proj_img)
             else:
-                # print(arch_fname, ' is not written into json file yet') # in the abo case
+                print(arch_fname, ' is not written into json file yet') # in the abo case
                 # st() 
                 pass
             if idx >= max_idx-1:
@@ -428,6 +438,7 @@ def open_dest(dest: str) -> Tuple[str, Callable[[str, Union[bytes, str]], None],
 @click.option('--resolution', help='Output resolution (e.g., \'512x512\')', metavar='WxH', type=parse_tuple)
 @click.option('--read_pointcloud', help='whether pc.csv is in dataset)', type=boolean, is_flag=True, default=False)
 @click.option('--split', help='Directory or archive name for input dataset', required=True, metavar='PATH')
+@click.option('--num_points', help='whether pc.csv is in dataset)', type=click.IntRange(min=1024, max=4096), required=False, default=1024)
 
 def convert_dataset(
     ctx: click.Context,
@@ -438,6 +449,8 @@ def convert_dataset(
     resolution: Optional[Tuple[int, int]],
     read_pointcloud:Optional[boolean],
     split: str,
+    num_points:Optional[int],
+
 ):
     """Convert an image dataset into a dataset archive usable with StyleGAN2 ADA PyTorch.
 
@@ -502,13 +515,18 @@ def convert_dataset(
         global READ_POINTCLOUD
         READ_POINTCLOUD = True
         global NUM_POINTS
+
         NUM_POINTS = 1024
     
-    global READ_PROJECTION
-    READ_PROJECTION = True
-    
-    global SPLIT
-    SPLIT = split
+        global READ_PROJECTION
+        READ_PROJECTION = True
+
+        global SPLIT
+        SPLIT = split
+
+        NUM_POINTS = num_points
+        print("num_points:", NUM_POINTS)
+
 
     PIL.Image.init() # type: ignore
 
@@ -525,12 +543,11 @@ def convert_dataset(
     dataset_attrs = None
 
     labels = []
+
     for idx, image in tqdm(enumerate(input_iter), total=num_files):
-        
-        
-        # print(image)
-        
+
         idx_str = f'{idx:08d}'
+        print(idx_str)
         archive_fname = f'{idx_str[:5]}/img{idx_str}.png'
 
         # Apply crop and resize.

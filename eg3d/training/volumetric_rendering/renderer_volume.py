@@ -175,7 +175,7 @@ class VolumeImportanceRenderer(torch.nn.Module):
         # st()
         # if planes.shape[1]==96:
         if isinstance(planes, list):
-            # st()
+            st()
             sampled_features_plane = sample_from_planes(self.plane_axes, planes[0], sample_coordinates, padding_mode='zeros', box_warp=options['box_warp'])
             sampled_features_volume = sample_from_volume(planes[1], sample_coordinates, padding_mode='zeros', box_warp=options['box_warp'])
             

@@ -31,6 +31,7 @@ DEBUG=True
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str)
+    parser.add_argument("--file_prefix", type=str)
     parser.add_argument("--max_images", type=int, default=None)
     parser.add_argument("--split", type=str)
     parser.add_argument("--pc_fbase", type=str)
@@ -51,6 +52,7 @@ if __name__ == '__main__':
 
     #### this is using predefined list, to avoid folders that the datageneration is not complete
     all_data = []
+
     resolution = 128
     # for split in ['train', 'val']:
         # with open(os.path.join(dataset_path, 'meta', f'abo_{resolution}_{split}.txt')) as f:
@@ -94,7 +96,7 @@ if __name__ == '__main__':
                     [0.00000000e+00, focal / h, (h / 2)/h],
                     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
                 ).tolist()
-        st()
+    
 
         # continue
         # for rgb_path in list_recursive(os.path.join(scene_folder_path, 'render')):
@@ -135,9 +137,10 @@ if __name__ == '__main__':
             
         image_path = os.path.join(args.source, filename)
         pc_rel_path = cameras[filename]['pc_csv']
+        
         dataset["labels"].append([filename, label, pc_rel_path]) 
         # also append pointcloud filename, but need to check with the dataset class too
-
+    
     # print(dataset)
     # check cameras/dataset
 

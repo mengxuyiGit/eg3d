@@ -207,7 +207,13 @@ def parse_comma_separated_list(s):
 @click.option('--use_ray_directions', help='If true, use_ray_directions during rendering.', metavar='BOOL',  type=bool, required=False, default=True)
 @click.option('--noise_strength', help='Control the magnitude of noises added to 3D volume during upsampling.', metavar='FLOAT', type=click.FloatRange(min=0, max=10), default=0.5, show_default=True)
 @click.option('--z_from_pc', help='Latent z is not randomly sampled, but condition on input point cloud.', metavar='BOOL',  type=bool, required=False, default=False)
+
 @click.option('--remove_latent', help='Latent z is not used in the model.', metavar='BOOL',  type=bool, required=False, default=False)
+
+@click.option('--synthesis_no_latent', help='Not using latent to generate.', metavar='BOOL',  type=bool, required=False, default=False)
+@click.option('--separate_oc_volumes', help='get3d two branches.', metavar='BOOL',  type=bool, required=False, default=False)
+@click.option('--rgb_use_occupancy', help='in OSG_decoder_separate, render rgb also uses occupancy information.', metavar='BOOL',  type=bool, required=False, default=False)
+
 
 # specially for VolumeD
 @click.option('--use_patch',    help='Use patch discriminator', metavar='BOOL',  type=bool, required=False, default=False)
@@ -313,7 +319,12 @@ def main(**kwargs):
         c.G_kwargs.decoder_dim = opts.decoder_dim
         c.G_kwargs.noise_strength = opts.noise_strength
         c.G_kwargs.z_from_pc = opts.z_from_pc
+
         c.G_kwargs.remove_latent = opts.remove_latent
+
+        c.G_kwargs.synthesis_no_latent = opts.synthesis_no_latent
+        c.G_kwargs.separate_oc_volumes = opts.separate_oc_volumes
+
         
         if opts.use_patch:
             c.D_kwargs.class_name = 'training.patch_discriminator.PatchDiscriminator'
@@ -363,6 +374,7 @@ def main(**kwargs):
         'decoder_lr_mul': opts.decoder_lr_mul, # learning rate multiplier for decoder
         'sr_antialias': True,
         'use_ray_directions': opts.use_ray_directions,
+        'rgb_use_occupancy':opts.rgb_use_occupancy,
     }
 
     if opts.cfg == 'ffhq':
@@ -417,6 +429,10 @@ def main(**kwargs):
     if opts.density_reg > 0:
         c.G_reg_interval = opts.density_reg_every
     c.G_kwargs.rendering_kwargs = rendering_options
+    c.G_kwargs.rendering_kwargs.update({
+        'separate_oc_volumes': opts.separate_oc_volumes
+    })
+
     c.G_kwargs.num_fp16_res = 0
     c.loss_kwargs.blur_init_sigma = 10 # Blur the images seen by the discriminator.
     c.loss_kwargs.blur_fade_kimg = c.batch_size * opts.blur_fade_kimg / 32 # Fade out the blur during the first N kimg.

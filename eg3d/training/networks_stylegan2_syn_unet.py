@@ -31,7 +31,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_scatter
 import spconv.pytorch.conv as spconv
-from training.costregnet import Synthesis3DUnet, Synthesis3DUnet_no_latent
+
+
+# from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
+from training.costregnet import Synthesis3DUnet_no_latent as Synthesis3DUnet_separate
 
 
 
@@ -248,6 +251,7 @@ class MappingNetwork(torch.nn.Module):
 
     def forward(self, z, c, truncation_psi=1, truncation_cutoff=None, update_emas=False):
         # Embed, normalize, and concat inputs.
+
         x = None
         with torch.autograd.profiler.record_function('input'):
             if self.z_dim > 0:
@@ -490,7 +494,11 @@ class SynthesisNetwork(torch.nn.Module):
         volume_res,
         noise_strength,
         # vfe_feature,
+
         remove_latent,
+
+        separate_oc_volumes,
+
         img_resolution,             # Output image resolution.
         img_channels,               # Number of color channels.
         channel_base    = 32768,    # Overall multiplier for the number of channels.
@@ -522,6 +530,7 @@ class SynthesisNetwork(torch.nn.Module):
                 self.num_ws += block.num_torgb
             setattr(self, f'b{res}', block)
         
+        self.separate_oc_volumes= separate_oc_volumes
         ###### hard-code attr for voxelize #######
         # vfe_feature = 'embedding'
         vfe_feature = 'pointnet'
@@ -552,8 +561,15 @@ class SynthesisNetwork(torch.nn.Module):
                         ).cuda()
 
         elif self.vfe_feature=='pointnet':
-            self.vfe_model = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
-            self.fea_compre = False
+            if self.separate_oc_volumes:
+                # self.vfe_model_occupancy = PointNet_lit(fea_dim=3, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
+                # self.vfe_model_color = PointNet_lit(fea_dim=9, out_pt_fea_dim=16) # TODO: modify this hard-coded thing
+                self.vfe_model_occupancy = PointNet(fea_dim=3, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
+                self.vfe_model_color = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
+                self.fea_compre = False
+            else:
+                self.vfe_model = PointNet(fea_dim=9, out_pt_fea_dim=32) # TODO: modify this hard-coded thing
+                self.fea_compre = False
         
         self.pt_selection = 'random'
         self.max_pt = 256
@@ -564,17 +580,17 @@ class SynthesisNetwork(torch.nn.Module):
        
         ######### for unet3d ############
         self.grid_size=[volume_res]*3
-        unet_in_channels = 32
-        
-        self.remove_latent = remove_latent
-        if not self.remove_latent:
-            self.synthesis_unet3d=Synthesis3DUnet(in_channels=unet_in_channels, 
-                                use_noise=(noise_strength!=0), noise_strength = noise_strength,
-                                norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
+
+        if self.separate_oc_volumes:
+            unet_in_channels = 32
+            self.synthesis_unet3d_occupancy=Synthesis3DUnet_separate(unet_in_channels,
+                    use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
+            self.synthesis_unet3d_color=Synthesis3DUnet_separate(unet_in_channels,
+                    use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         else:
-            self.synthesis_unet3d=Synthesis3DUnet_no_latent(in_channels=unet_in_channels,
-                                use_noise=(noise_strength!=0), noise_strength = noise_strength,
-                                norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
+            unet_in_channels = 32
+            self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels,
+                                use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
 
 
     def forward(self, ws, pc, box_warp, **block_kwargs):
@@ -613,27 +629,57 @@ class SynthesisNetwork(torch.nn.Module):
             return img
         
         # ----change to 3D Unet ------------
-
-        # # 1. voxelize input pc
-        
         B,_,_=pc.shape
-        _coor, _feature_3d, density_volume, voxel_size = self.voxelize_spconv_sparse_pointnet(
-                                                        pc=pc, box_warp=box_warp,grid_size=self.grid_size)
-        _ret = spconv.SparseConvTensor(_feature_3d, _coor.int(), np.array(self.grid_size),
-                                B) # sp_tensor batch = B*V
-        _feature_3d = _ret.dense(channels_first = True).contiguous() # [B, C, X, Y, Z], C=32
+        if self.separate_oc_volumes:
         
+            ### Occupancy
+            # # 1. voxelize input pc 
+            _coor, _feature_3d, density_volume, voxel_size = self.voxelize_spconv_sparse_pointnet(
+                                                            pc=pc[...,:3],
+                                                            vfe_model = self.vfe_model_occupancy,
+                                                            box_warp=box_warp,grid_size=self.grid_size)
+            _ret = spconv.SparseConvTensor(_feature_3d, _coor.int(), np.array(self.grid_size),
+                                    B) # sp_tensor batch = B*V
+            _feature_3d = _ret.dense(channels_first = True).contiguous() # [B, C, X, Y, Z], C=32
+            
+            
+            # # 2. 3D Unet
+            _feature_3d = self.synthesis_unet3d_occupancy(_feature_3d, ws)
+            volume_occupancy = _feature_3d.permute(0,1,4,3,2)
         
-        # # 2. 3D Unet: special: with addtional input ws to concate at the bottle neck so that the upconv part can serve as generator
 
-        # 2.1 _feature_3d = self.unet3d(_feature_3d.contiguous()) # 3d CONV takes [B, C, X, Y, Z] as input
-        # 2.2 add latent and noises
-        _feature_3d = self.synthesis_unet3d(_feature_3d, ws)
-       
-        # st()
-        volume = _feature_3d.permute(0,1,4,3,2)
-        # st()
+            ### Color
+            # # 1. voxelize input pc
+            _coor, _feature_3d, density_volume, voxel_size = self.voxelize_spconv_sparse_pointnet(
+                                                            pc=pc,
+                                                            vfe_model = self.vfe_model_color,
+                                                            box_warp=box_warp,grid_size=self.grid_size)
+            _ret = spconv.SparseConvTensor(_feature_3d, _coor.int(), np.array(self.grid_size),
+                                    B) # sp_tensor batch = B*V
+            _feature_3d = _ret.dense(channels_first = True).contiguous() # [B, C, X, Y, Z], C=32
+  
+            # # 2. 3D Unet
+            _feature_3d = self.synthesis_unet3d_color(_feature_3d, ws)
+            volume_color = _feature_3d.permute(0,1,4,3,2)
+
+            ### Occupancy + Color
         
+            volume = torch.cat([volume_occupancy, volume_color],1)
+            
+        else:
+            _coor, _feature_3d, density_volume, voxel_size = self.voxelize_spconv_sparse_pointnet(
+                                                            pc=pc,
+                                                            vfe_model = self.vfe_model,
+                                                            box_warp=box_warp,grid_size=self.grid_size)
+            _ret = spconv.SparseConvTensor(_feature_3d, _coor.int(), np.array(self.grid_size),
+                                    B) # sp_tensor batch = B*V
+            _feature_3d = _ret.dense(channels_first = True).contiguous() # [B, C, X, Y, Z], C=32
+            
+            # # 2. 3D Unet
+            _feature_3d = self.synthesis_unet3d(_feature_3d, ws)
+            volume = _feature_3d.permute(0,1,4,3,2)
+
+        # st() # check volume.shape
         return volume
 
     def extra_repr(self):
@@ -643,11 +689,14 @@ class SynthesisNetwork(torch.nn.Module):
             f'num_fp16_res={self.num_fp16_res:d}'])
     
     
-    def voxelize_spconv_sparse_pointnet(self, pc, grid_size=[], 
+    def voxelize_spconv_sparse_pointnet(self, pc, vfe_model, grid_size=[], 
         box_warp=None, pointnet_input=None):
         ######## parameter alignment ######### 
         batch_pcl = pc[...,:3].unsqueeze(1)
-        batch_mtl = pc[...,3:].unsqueeze(1)
+        if pc.shape[-1]>3:
+            batch_mtl = pc[...,3:].unsqueeze(1)
+        else:
+            batch_mtl = None
         device=batch_pcl.device
         B,V,_,_ = batch_pcl.shape # torch.Size([4, 1, 1500, 9])
         #check box_warp.shape
@@ -670,7 +719,8 @@ class SynthesisNetwork(torch.nn.Module):
         batch_xyz_cube_pos = torch.div((batch_pcl-batch_bbox[:,:,:1]), batch_voxel_size, rounding_mode='floor')
         if pointnet_input== 'local_xyz':
             batch_pcl_local = (batch_pcl - batch_bbox[:,:,:1] - batch_xyz_cube_pos*batch_voxel_size) / batch_voxel_size - 0.5
-            batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
+            if batch_mtl is not None:
+                batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
             
             cat_pt_fea, cat_pt_ind = [], []
             for i_batch in range(len(batch_xyz_cube_pos)):
@@ -732,7 +782,8 @@ class SynthesisNetwork(torch.nn.Module):
         # if feature=='embedding':
         #     processed_cat_pt_fea = self.voxel_embed(cat_pt_fea)
         # elif feature=='pointnet':
-        processed_cat_pt_fea = self.vfe_model(cat_pt_fea) # global pointnet
+        # processed_cat_pt_fea = self.vfe_model(cat_pt_fea) # global pointnet
+        processed_cat_pt_fea = vfe_model(cat_pt_fea) # global pointnet
             # st()
 
         if self.pt_pooling == 'max':
@@ -783,6 +834,30 @@ class PointNet(torch.nn.Module):
             nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Linear(256, out_pt_fea_dim)
+        )
+
+    def forward(self, x):
+        return self.PPmodel(x)
+
+    
+@persistence.persistent_class
+class PointNet_lit(torch.nn.Module):
+    # def __init__(self, cfg):
+    def __init__(self, fea_dim, out_pt_fea_dim):
+        super().__init__()
+        
+        self.PPmodel = nn.Sequential(
+            # nn.BatchNorm1d(fea_dim),
+            nn.Linear(fea_dim, 32),
+            nn.BatchNorm1d(32),
+            nn.ReLU(),
+            nn.Linear(32, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Linear(128, out_pt_fea_dim)
         )
 
     def forward(self, x):
