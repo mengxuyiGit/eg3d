@@ -35,6 +35,7 @@ import spconv.pytorch.conv as spconv
 
 # from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
 from training.costregnet import Synthesis3DUnet_no_latent as Synthesis3DUnet_separate
+from training.costregnet import Synthesis3DUnet
 
 
 
@@ -588,6 +589,7 @@ class SynthesisNetwork(torch.nn.Module):
             self.synthesis_unet3d_color=Synthesis3DUnet_separate(unet_in_channels,
                     use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         else:
+            st()
             unet_in_channels = 32
             self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels,
                                 use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))

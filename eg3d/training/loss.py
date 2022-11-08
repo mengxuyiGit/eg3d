@@ -101,6 +101,7 @@ class StyleGAN2Loss(Loss):
             self.chamfer_loss = ChamferLoss()
 
         self.use_patchD = use_patch
+        assert not self.use_patchD
         self.patchD_reg = patch_reg
         self.discriminator_condition_on_real = discriminator_condition_on_real
         self.drop_pixel_ratio  = drop_pixel_ratio
