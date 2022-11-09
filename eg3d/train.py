@@ -346,7 +346,7 @@ def main(**kwargs):
     c.G_kwargs.fused_modconv_default = 'inference_only' # Speed up training by using regular convolutions instead of grouped convolutions.
     c.loss_kwargs.filter_mode = 'antialiased' # Filter mode for raw images ['antialiased', 'none', float [0-1]]
     c.D_kwargs.disc_c_noise = opts.disc_c_noise # Regularization for discriminator pose conditioning
-
+    st()
     if c.training_set_kwargs.resolution == 512:
         sr_module = 'training.superresolution.SuperresolutionHybrid8XDC'
     elif c.training_set_kwargs.resolution == 256:
@@ -398,6 +398,17 @@ def main(**kwargs):
             'avg_camera_pivot': [0, 0, -0.06],
         })
     elif opts.cfg == 'shapenet':
+        rendering_options.update({
+            'depth_resolution': 64,
+            'depth_resolution_importance': 64,
+            'ray_start': 0.1,
+            'ray_end': 2.6,
+            'box_warp': 1.6,
+            'white_back': True,
+            'avg_camera_radius': 1.7,
+            'avg_camera_pivot': [0, 0, 0],
+        })
+    elif opts.cfg == 'shapenet200':
         rendering_options.update({
             'depth_resolution': 64,
             'depth_resolution_importance': 64,
