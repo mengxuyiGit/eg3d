@@ -193,15 +193,26 @@ class DualDiscriminator(torch.nn.Module):
         self.img_channels = img_channels
         self.block_resolutions = [2 ** i for i in range(self.img_resolution_log2, 2, -1)]
         channels_dict = {res: min(channel_base // res, channel_max) for res in self.block_resolutions + [4]}
+        
+        if self.block_resolutions[0]!=self.img_resolution:
+            self.block_resolutions = [self.img_resolution//2**i for i in range(len(self.block_resolutions))]
+            channels_dict = {200: 256, 100: 512, 50: 512, 25: 512, 12: 512, 6: 512}
+        # {128: 256, 64: 512, 32: 512, 16: 512, 8: 512, 4: 512}
+        # {200: 163, 100: 327, 50: 512, 25: 512, 12: 512, 4: 512}
         fp16_resolution = max(2 ** (self.img_resolution_log2 + 1 - num_fp16_res), 8)
+        
 
         if cmap_dim is None:
-            cmap_dim = channels_dict[4]
+            try:
+                cmap_dim = channels_dict[4]
+            except:
+                cmap_dim = channels_dict[6]
         if c_dim == 0:
             cmap_dim = 0
 
         common_kwargs = dict(img_channels=img_channels, architecture=architecture, conv_clamp=conv_clamp)
         cur_layer_idx = 0
+        
         for res in self.block_resolutions:
             in_channels = channels_dict[res] if res < img_resolution else 0
             tmp_channels = channels_dict[res]
@@ -213,7 +224,10 @@ class DualDiscriminator(torch.nn.Module):
             cur_layer_idx += block.num_layers
         if c_dim > 0:
             self.mapping = MappingNetwork(z_dim=0, c_dim=c_dim, w_dim=cmap_dim, num_ws=None, w_avg_beta=None, **mapping_kwargs)
-        self.b4 = DiscriminatorEpilogue(channels_dict[4], cmap_dim=cmap_dim, resolution=4, **epilogue_kwargs, **common_kwargs)
+        try:
+            self.b4 = DiscriminatorEpilogue(channels_dict[4], cmap_dim=cmap_dim, resolution=4, **epilogue_kwargs, **common_kwargs)
+        except:
+            self.b4 = DiscriminatorEpilogue(channels_dict[6], cmap_dim=cmap_dim, resolution=6, **epilogue_kwargs, **common_kwargs)
         self.register_buffer('resample_filter', upfirdn2d.setup_filter([1,3,3,1]))
         self.disc_c_noise = disc_c_noise
 
@@ -230,6 +244,7 @@ class DualDiscriminator(torch.nn.Module):
 
         _ = update_emas # unused
         x = None
+        # st()
         for res in self.block_resolutions:
             block = getattr(self, f'b{res}')
             x, img = block(x, img, **block_kwargs)

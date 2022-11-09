@@ -244,6 +244,7 @@ def training_loop(
         else:
             if loss_kwargs.discriminator_condition_on_real or loss_kwargs.discriminator_condition_on_projection:
                 img['condition']=torch.zeros_like(img['image']) # [B,6,H,W]
+            # st()
             misc.print_module_summary(D, [img, c])
 
     # Setup augmentation.

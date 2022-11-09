@@ -176,6 +176,7 @@ class Conv2dLayer(torch.nn.Module):
         w = self.weight * self.weight_gain
         b = self.bias.to(x.dtype) if self.bias is not None else None
         flip_weight = (self.up == 1) # slightly faster
+        # st()
         x = conv2d_resample.conv2d_resample(x=x, w=w.to(x.dtype), f=self.resample_filter, up=self.up, down=self.down, padding=self.padding, flip_weight=flip_weight)
 
         act_gain = self.act_gain * gain
@@ -683,19 +684,23 @@ class DiscriminatorBlock(torch.nn.Module):
         memory_format = torch.channels_last if self.channels_last and not force_fp32 else torch.contiguous_format
 
         # Input.
+       
         if x is not None:
             misc.assert_shape(x, [None, self.in_channels, self.resolution, self.resolution])
             x = x.to(dtype=dtype, memory_format=memory_format)
 
         # FromRGB.
+        # st()
         if self.in_channels == 0 or self.architecture == 'skip':
             misc.assert_shape(img, [None, self.img_channels, self.resolution, self.resolution])
+            # st()
             img = img.to(dtype=dtype, memory_format=memory_format)
             y = self.fromrgb(img)
             x = x + y if x is not None else y
             img = upfirdn2d.downsample2d(img, self.resample_filter) if self.architecture == 'skip' else None
 
         # Main layers.
+       
         if self.architecture == 'resnet':
             y = self.skip(x, gain=np.sqrt(0.5))
             x = self.conv0(x)
@@ -824,7 +829,11 @@ class Discriminator(torch.nn.Module):
         self.img_resolution = img_resolution
         self.img_resolution_log2 = int(np.log2(img_resolution))
         self.img_channels = img_channels
+        st()
         self.block_resolutions = [2 ** i for i in range(self.img_resolution_log2, 2, -1)]
+        if self.block_resolutions[0]!=self.img_resolution:
+            self.block_resolutions = [self.img_resolution//2**i for i in range(len(self.block_resolutions))]
+            
         channels_dict = {res: min(channel_base // res, channel_max) for res in self.block_resolutions + [4]}
         fp16_resolution = max(2 ** (self.img_resolution_log2 + 1 - num_fp16_res), 8)
 

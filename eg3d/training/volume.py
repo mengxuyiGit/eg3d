@@ -349,6 +349,7 @@ class OSGDecoder_separate(torch.nn.Module):
             if i in self.skips:
                 h = torch.cat([sampled_features_color, h], -1)
         # print(sampled_features_color.shape)
+        # st()
         rgb = self.net_color(h)
         rgb = rgb.view(N, M, -1)
         rgb = torch.sigmoid(rgb)*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF

@@ -33,7 +33,7 @@ import numpy as np
 #----------------------------------------------------------------------------
 
 def subprocess_fn(rank, c, temp_dir):
-    # dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
+    dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
 
     # Init torch.distributed.
     if c.num_gpus > 1:
@@ -58,7 +58,7 @@ def subprocess_fn(rank, c, temp_dir):
 #----------------------------------------------------------------------------
 
 def launch_training(c, desc, outdir, dry_run):
-    # dnnlib.util.Logger(should_flush=True)
+    dnnlib.util.Logger(should_flush=True)
 
     # Pick output directory.
     prev_run_dirs = []
@@ -346,13 +346,16 @@ def main(**kwargs):
     c.G_kwargs.fused_modconv_default = 'inference_only' # Speed up training by using regular convolutions instead of grouped convolutions.
     c.loss_kwargs.filter_mode = 'antialiased' # Filter mode for raw images ['antialiased', 'none', float [0-1]]
     c.D_kwargs.disc_c_noise = opts.disc_c_noise # Regularization for discriminator pose conditioning
-    st()
+    
     if c.training_set_kwargs.resolution == 512:
         sr_module = 'training.superresolution.SuperresolutionHybrid8XDC'
     elif c.training_set_kwargs.resolution == 256:
         sr_module = 'training.superresolution.SuperresolutionHybrid4X'
     elif c.training_set_kwargs.resolution == 128:
         sr_module = 'training.superresolution.SuperresolutionHybrid2X'
+    elif c.training_set_kwargs.resolution == 200 and opts.cfg == 'shapenet200':
+        sr_module = 'training.superresolution.SuperresolutionHybrid4X_Shapenet'
+        print("special trial for res=200 shapenet")
     else:
         assert False, f"Unsupported resolution {c.training_set_kwargs.resolution}; make a new superresolution module"
     
