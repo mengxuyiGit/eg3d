@@ -411,7 +411,7 @@ def main(**kwargs):
     elif opts.cfg == 'abo_dataset':
         rendering_options.update({
             'depth_resolution': 64,
-            'depth_resolution_importance': 16,
+            'depth_resolution_importance': 64,
             'ray_start': 0.1,
             'ray_end': 2.6,
             'box_warp': 1.6,

@@ -495,7 +495,7 @@ class SynthesisNetwork(torch.nn.Module):
         volume_res,
         noise_strength,
         # vfe_feature,
-
+        out_dim,
         remove_latent,
 
         separate_oc_volumes,
@@ -584,9 +584,9 @@ class SynthesisNetwork(torch.nn.Module):
 
         if self.separate_oc_volumes:
             unet_in_channels = 32
-            self.synthesis_unet3d_occupancy=Synthesis3DUnet_separate(unet_in_channels,
+            self.synthesis_unet3d_occupancy=Synthesis3DUnet_separate(unet_in_channels,out_dim=out_dim,
                     use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
-            self.synthesis_unet3d_color=Synthesis3DUnet_separate(unet_in_channels,
+            self.synthesis_unet3d_color=Synthesis3DUnet_separate(unet_in_channels,out_dim=out_dim,
                     use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         else:
             st()
@@ -665,7 +665,7 @@ class SynthesisNetwork(torch.nn.Module):
             volume_color = _feature_3d.permute(0,1,4,3,2)
 
             ### Occupancy + Color
-        
+            # st()
             volume = torch.cat([volume_occupancy, volume_color],1)
             
         else:
@@ -881,6 +881,7 @@ class Generator(torch.nn.Module):
         volume_res,                 # Volume resolution.
         noise_strength,             # Factor to multiply with noise in the 3D Unet block.
         remove_latent,
+        out_dim,
         ##########################################
         img_resolution,             # Output resolution.
         img_channels,               # Number of output color channels.
@@ -897,7 +898,9 @@ class Generator(torch.nn.Module):
         ##########################################
         self.img_resolution = img_resolution
         self.img_channels = img_channels
-        self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength,remove_latent=remove_latent, img_channels=img_channels, **synthesis_kwargs)
+        self.synthesis = SynthesisNetwork(w_dim=w_dim,volume_res=volume_res, img_resolution=img_resolution, noise_strength=noise_strength,
+            remove_latent=remove_latent, out_dim=out_dim,
+            img_channels=img_channels, **synthesis_kwargs)
         self.num_ws = self.synthesis.num_ws
         self.remove_latent = remove_latent
         if not self.remove_latent:

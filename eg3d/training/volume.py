@@ -28,6 +28,8 @@ import dnnlib
 
 from ipdb import set_trace as st
 from training.model_pointnet import PointNetfeat
+import torch.nn.functional as F
+import torch.nn as nn
 
 @persistence.persistent_class
 class VolumeGenerator(torch.nn.Module):
@@ -78,6 +80,7 @@ class VolumeGenerator(torch.nn.Module):
         # self.backbone = StyleGAN2Backbone(z_dim, c_dim, w_dim, img_resolution=256, img_channels=32*3, mapping_kwargs=mapping_kwargs, **synthesis_kwargs)
         self.backbone = VolumeBackbone(z_dim, c_dim, w_dim, \
             pc_dim=pc_dim, volume_res=volume_res, noise_strength=noise_strength, remove_latent=remove_latent, \
+            out_dim=decoder_dim,
             img_resolution=256, img_channels=32*3, mapping_kwargs=mapping_kwargs, **synthesis_kwargs)
         ##
         self.superresolution = dnnlib.util.construct_class_by_name(class_name=rendering_kwargs['superresolution_module'], channels=32, img_resolution=img_resolution, sr_num_fp16_res=sr_num_fp16_res, sr_antialias=rendering_kwargs['sr_antialias'], **sr_kwargs)
@@ -282,16 +285,23 @@ class OSGDecoder_separate(torch.nn.Module):
             self.color_n_features = n_features//2 # use also occ features
         if self.use_ray_directions:
             self.color_n_features += 3
-            
-      
+        
+        W=32
+        D=6
+        self.skips=[4]
+        
+        self.pts_linears_occ = torch.nn.ModuleList(
+                [torch.nn.Linear(self.occ_n_features, W, bias=True)] + [torch.nn.Linear(W, W, bias=True) if i not in self.skips else torch.nn.Linear(W + self.occ_n_features, W) for i in range(D-1)])   
         self.net_occ = torch.nn.Sequential(
-            FullyConnectedLayer(self.occ_n_features, self.hidden_dim, lr_multiplier=options['decoder_lr_mul']),
+            FullyConnectedLayer(W, self.hidden_dim, lr_multiplier=options['decoder_lr_mul']),
             torch.nn.Softplus(),
             FullyConnectedLayer(self.hidden_dim, 1 , lr_multiplier=options['decoder_lr_mul'])
         )
 
+        self.pts_linears_color = torch.nn.ModuleList(
+                [torch.nn.Linear(self.color_n_features, W, bias=True)] + [torch.nn.Linear(W, W, bias=True) if i not in self.skips else torch.nn.Linear(W + self.color_n_features, W) for i in range(D-1)]) 
         self.net_color = torch.nn.Sequential(
-            FullyConnectedLayer(self.color_n_features, self.hidden_dim, lr_multiplier=options['decoder_lr_mul']),
+            FullyConnectedLayer(W, self.hidden_dim, lr_multiplier=options['decoder_lr_mul']),
             torch.nn.Softplus(),
             FullyConnectedLayer(self.hidden_dim, options['decoder_output_dim'], lr_multiplier=options['decoder_lr_mul'])
         )
@@ -302,7 +312,8 @@ class OSGDecoder_separate(torch.nn.Module):
         # Aggregate features
         
         sampled_features = sampled_features.mean(1) # tri-plane: mean of 3 planes; volume: only one volume, so mean() is the same as squeeze
-       
+
+
         sampled_features_occ = sampled_features[...,:self.occ_n_features]
         if self.rgb_use_occupancy:
             sampled_features_color = sampled_features
@@ -312,29 +323,33 @@ class OSGDecoder_separate(torch.nn.Module):
         if self.use_ray_directions:
             sampled_features_color = torch.cat([sampled_features_color, ray_directions], -1)
 
-        ## original: no separate
-        # x = sampled_features
-        # N, M, C = x.shape
-        # x = x.view(N*M, C)
-        # x = self.net(x)
-        # x = x.view(N, M, -1)
-        # rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
-        # sigma = x[..., 0:1]
-
+       
         ####### Now separately do rendering
         N, M, C = sampled_features_occ.shape
         
         ## sigma
 
         sampled_features_occ = sampled_features_occ.view(N*M, self.occ_n_features)
-        sigma = self.net_occ(sampled_features_occ)
+        h = sampled_features_occ
+        for i, l in enumerate(self.pts_linears_occ):
+            h = self.pts_linears_occ[i](h)
+            h = F.relu(h) #torch.sigmoid(h) # 
+            if i in self.skips:
+                h = torch.cat([sampled_features_occ, h], -1)
+        sigma = self.net_occ(h)
         sigma = sigma.view(N, M, 1)
 
         ## color
 
         sampled_features_color = sampled_features_color.view(N*M, self.color_n_features)
+        h = sampled_features_color
+        for i, l in enumerate(self.pts_linears_color):
+            h = self.pts_linears_color[i](h)
+            h = F.relu(h) #torch.sigmoid(h) # 
+            if i in self.skips:
+                h = torch.cat([sampled_features_color, h], -1)
         # print(sampled_features_color.shape)
-        rgb = self.net_color(sampled_features_color)
+        rgb = self.net_color(h)
         rgb = rgb.view(N, M, -1)
         rgb = torch.sigmoid(rgb)*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
 
