@@ -31,7 +31,7 @@ if __name__ == '__main__':
         split = 'train'
         pc_fbase = 'pc_1024.csv'
         
-        output_dataset_name = f'debug_shapenet_toy_200_{split}.zip'
+        output_dataset_name = f'shapenet_200x200_{split}.zip'
         resolution=200
 
 

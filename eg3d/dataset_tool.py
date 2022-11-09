@@ -91,7 +91,6 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             all_data += scans
     # print(len(all_data), all_data)
     print(len(all_data))
-    all_data = ['bbaa22bfada1dc0fc6194c8172019a35', '687ebd7d2b1e1475459cbe66a12329e7', '2764f43226260c94a5a118bd15e6e34f']
     input_images = [f for f in input_images if f.split(os.sep)[-3] in all_data]
     # st()
     # ----------------------------------------------------------------------------------

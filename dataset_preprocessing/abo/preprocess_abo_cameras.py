@@ -66,7 +66,7 @@ if __name__ == '__main__':
     # print(len(all_data), all_data)
     print(len(all_data))
     
-    all_data=['bbaa22bfada1dc0fc6194c8172019a35', '687ebd7d2b1e1475459cbe66a12329e7', '2764f43226260c94a5a118bd15e6e34f']
+    # all_data=['bbaa22bfada1dc0fc6194c8172019a35', '687ebd7d2b1e1475459cbe66a12329e7', '2764f43226260c94a5a118bd15e6e34f']
    
   
 
