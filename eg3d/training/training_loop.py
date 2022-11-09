@@ -491,7 +491,8 @@ def training_loop(
 
         # Save image snapshot.
         idx=0
-        print("zip(grid_z, grid_c, grid_pc", len(grid_z), len(grid_c), len(grid_pc))
+        # st()
+        # print("zip(grid_z, grid_c, grid_pc", len(grid_z), len(grid_c), len(grid_pc))
         if (rank == 0) and (image_snapshot_ticks is not None) and (done or cur_tick % image_snapshot_ticks == 0):
             if all(x != 0 for x in pointclouds.shape):
                 # st()
