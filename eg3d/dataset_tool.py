@@ -91,7 +91,9 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             all_data += scans
     # print(len(all_data), all_data)
     print(len(all_data))
+    all_data = ['bbaa22bfada1dc0fc6194c8172019a35', '687ebd7d2b1e1475459cbe66a12329e7', '2764f43226260c94a5a118bd15e6e34f']
     input_images = [f for f in input_images if f.split(os.sep)[-3] in all_data]
+    # st()
     # ----------------------------------------------------------------------------------
  
     # Load labels.
@@ -161,7 +163,9 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             if READ_PROJECTION:
       
                 # proj_rel = pc_rel_paths.get(arch_fname[:-4])
-                proj_rel = arch_fname.replace('r_', '128_1024/pc_1024_')
+                # proj_rel = arch_fname.replace('r_', '128_1024/pc_1024_')
+                # st()
+                proj_rel = arch_fname.replace('r_', f'{RESOLUTION}_1024/pc_1024_')
                
                 if proj_rel != None:
                     proj_fname = os.path.join(source_dir, proj_rel)
@@ -522,6 +526,8 @@ def convert_dataset(
 
     if resolution is None: resolution = (None, None)
     transform_image = make_transform(transform, *resolution)
+    global RESOLUTION
+    RESOLUTION = resolution[0]
 
     dataset_attrs = None
 
@@ -557,8 +563,9 @@ def convert_dataset(
                 error(f'Image dimensions after scale and crop are required to be square.  Got {width}x{height}')
             if dataset_attrs['channels'] not in [1, 3, 4]:
                 error('Input images must be stored as RGB or grayscale')
-            if width != 2 ** int(np.floor(np.log2(width))):
-                error('Image width/height after scale and crop are required to be power-of-two')
+        
+            # if width != 2 ** int(np.floor(np.log2(width))):
+            #     error('Image width/height after scale and crop are required to be power-of-two')
         elif dataset_attrs != cur_image_attrs:
             err = [f'  dataset {k}/cur image {k}: {dataset_attrs[k]}/{cur_image_attrs[k]}' for k in dataset_attrs.keys()] # pylint: disable=unsubscriptable-object
             error(f'Image {archive_fname} attributes must be equal across all images of the dataset.  Got:\n' + '\n'.join(err))

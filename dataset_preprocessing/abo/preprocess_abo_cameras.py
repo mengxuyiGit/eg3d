@@ -34,6 +34,8 @@ if __name__ == '__main__':
     parser.add_argument("--max_images", type=int, default=None)
     parser.add_argument("--split", type=str)
     parser.add_argument("--pc_fbase", type=str)
+    parser.add_argument("--resolution", type=int, default=None)
+
     args = parser.parse_args()
 
     # Parse cameras
@@ -42,7 +44,8 @@ if __name__ == '__main__':
 
     blender2opencv = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
     # w, h = 512, 512
-    w, h = 128, 128
+    # w, h = 128, 128
+    w, h = args.resolution, args.resolution
 
 
     #### this is for directly listing 
@@ -51,7 +54,7 @@ if __name__ == '__main__':
 
     #### this is using predefined list, to avoid folders that the datageneration is not complete
     all_data = []
-    resolution = 128
+    resolution = args.resolution
     # for split in ['train', 'val']:
         # with open(os.path.join(dataset_path, 'meta', f'abo_{resolution}_{split}.txt')) as f:
         # with open(os.path.join(dataset_path, 'meta', f'debug_2048_{resolution}_{split}.txt')) as f:
@@ -62,6 +65,9 @@ if __name__ == '__main__':
             all_data += scans
     # print(len(all_data), all_data)
     print(len(all_data))
+    
+    all_data=['bbaa22bfada1dc0fc6194c8172019a35', '687ebd7d2b1e1475459cbe66a12329e7', '2764f43226260c94a5a118bd15e6e34f']
+   
   
 
     pc_fbase = args.pc_fbase
@@ -95,7 +101,7 @@ if __name__ == '__main__':
                     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
                 ).tolist()
     
-
+        # st()
         # continue
         # for rgb_path in list_recursive(os.path.join(scene_folder_path, 'render')):
         for frame in meta ['frames']:
