@@ -35,7 +35,7 @@ import spconv.pytorch.conv as spconv
 
 # from training.costregnet import Synthesis3DUnet_only_halve_output_layer as Synthesis3DUnet_separate
 from training.costregnet import Synthesis3DUnet_no_latent as Synthesis3DUnet_separate
-from training.costregnet import Synthesis3DUnet
+from training.costregnet import Synthesis3DUnet_no_latent as Synthesis3DUnet
 
 
 
@@ -589,9 +589,9 @@ class SynthesisNetwork(torch.nn.Module):
             self.synthesis_unet3d_color=Synthesis3DUnet_separate(unet_in_channels,out_dim=out_dim,
                     use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
         else:
-            st()
+            # st()
             unet_in_channels = 32
-            self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels,
+            self.synthesis_unet3d=Synthesis3DUnet(unet_in_channels,out_dim=out_dim*2,
                                 use_noise=True, noise_strength = noise_strength, norm_act= nn.BatchNorm3d).to(torch.device("cuda"))
 
 
@@ -647,6 +647,7 @@ class SynthesisNetwork(torch.nn.Module):
             
             # # 2. 3D Unet
             _feature_3d = self.synthesis_unet3d_occupancy(_feature_3d, ws)
+            
             volume_occupancy = _feature_3d.permute(0,1,4,3,2)
         
 
@@ -679,6 +680,7 @@ class SynthesisNetwork(torch.nn.Module):
             
             # # 2. 3D Unet
             _feature_3d = self.synthesis_unet3d(_feature_3d, ws)
+            # st()
             volume = _feature_3d.permute(0,1,4,3,2)
 
         # st() # check volume.shape
@@ -722,8 +724,10 @@ class SynthesisNetwork(torch.nn.Module):
         if pointnet_input== 'local_xyz':
             batch_pcl_local = (batch_pcl - batch_bbox[:,:,:1] - batch_xyz_cube_pos*batch_voxel_size) / batch_voxel_size - 0.5
             if batch_mtl is not None:
-                # batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
-                batch_pcl_local =  batch_mtl#torch.Size([4, 1, 1500, 9])
+                if not self.separate_oc_volumes:
+                    batch_pcl_local = torch.cat([batch_pcl_local, batch_mtl], dim=-1) #torch.Size([4, 1, 1500, 9])
+                else:
+                    batch_pcl_local =  batch_mtl#torch.Size([4, 1, 1500, 9])
             
             cat_pt_fea, cat_pt_ind = [], []
             for i_batch in range(len(batch_xyz_cube_pos)):

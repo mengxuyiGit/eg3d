@@ -237,10 +237,16 @@ class OSGDecoder(torch.nn.Module):
         self.use_ray_directions = options['use_ray_directions']
         if self.use_ray_directions:
             n_features += 3
-            
-       
+   
+        W=32
+        D=6
+        self.skips=[4]
+        
+        self.pts_linears = torch.nn.ModuleList(
+                [torch.nn.Linear(n_features, W, bias=True)] + [torch.nn.Linear(W, W, bias=True) if i not in self.skips else torch.nn.Linear(W + n_features, W) for i in range(D-1)]) 
+        
         self.net = torch.nn.Sequential(
-                FullyConnectedLayer(n_features, self.hidden_dim, lr_multiplier=options['decoder_lr_mul']),
+                FullyConnectedLayer(W, self.hidden_dim, lr_multiplier=options['decoder_lr_mul']),
                 torch.nn.Softplus(),
                 FullyConnectedLayer(self.hidden_dim, 1 + options['decoder_output_dim'], lr_multiplier=options['decoder_lr_mul'])
             )
@@ -260,7 +266,14 @@ class OSGDecoder(torch.nn.Module):
         N, M, C = x.shape
         x = x.view(N*M, C)
 
-        x = self.net(x)
+        h = x
+        for i, l in enumerate(self.pts_linears):
+            h = self.pts_linears[i](h)
+            h = F.relu(h) #torch.sigmoid(h) # 
+            if i in self.skips:
+                h = torch.cat([x, h], -1)
+
+        x = self.net(h)
         x = x.view(N, M, -1)
        
         rgb = torch.sigmoid(x[..., 1:])*(1 + 2*0.001) - 0.001 # Uses sigmoid clamping from MipNeRF
