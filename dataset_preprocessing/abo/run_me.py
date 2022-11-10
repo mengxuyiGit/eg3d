@@ -9,7 +9,7 @@
 # its affiliates is strictly prohibited.
 
 import os
-import gdown
+# import gdown
 import shutil
 import tempfile
 import subprocess
@@ -28,10 +28,11 @@ if __name__ == '__main__':
         # output_dataset_name = 'debug_one_obj_one_view.zip'
         # output_dataset_name = 'debug_one_obj_100_view.zip'
 
-        split = 'train'
+        # split = 'train'
+        split = 'val'
         pc_fbase = 'pc_1024.csv'
         
-        output_dataset_name = f'shapenet_200x200_{split}.zip'
+        output_dataset_name = f'shapenet_cars_200x200_{split}.zip'
         resolution=200
 
 
@@ -39,7 +40,8 @@ if __name__ == '__main__':
         dir_path = os.path.dirname(os.path.realpath(__file__))
         # extracted_data_path = '/home/xuyi/Data/renderer/output_debug'
         # extracted_data_path = '/home/xuyi/Data/renderer/output_debug'
-        extracted_data_path = '/hdd/jialin/shapenet_out/plane'
+        # extracted_data_path = '/hdd/jialin/shapenet_out/plane'
+        extracted_data_path = '/hdd/jialin/shapenet_out/car'
 
 
         
