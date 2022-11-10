@@ -110,7 +110,8 @@ class StyleGAN2Loss(Loss):
 
         if self.discriminator_condition_on_real or self.discriminator_condition_on_projection:
             # assert not (self.use_l2 or self.use_l1 or self.use_chamfer or self.use_perception)
-            assert not (self.use_l2 or self.use_chamfer or self.use_perception)
+            # assert not (self.use_l2 or self.use_chamfer or self.use_perception)
+            assert not (self.use_l2 or self.use_chamfer)
 
     def run_G(self, z, c, pc, swapping_prob, neural_rendering_resolution, update_emas=False):
         
